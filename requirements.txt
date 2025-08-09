@@ -1,5 +1,5 @@
 flask
 Flask>=2.2,<4
 flask
-python-dotenv[CLI]==1.0.1
+python-dotenvgunicorn>=21,<22
 gunicorn>=20,<22
