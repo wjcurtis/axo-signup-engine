@@ -1,26 +1,30 @@
 <!doctype html>
 
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
 
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <title>AXO — XRPL Signup & Referral Engine</title>
 
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
   <style>
 
     :root{
 
-      --bg:#0b0e13; --panel:#121722; --muted:#9aa4b2; --text:#e8eef8; --brand:#1e90ff; --ok:#16a34a; --border:#22304a; --card:#0f141f;
+      --bg:#ffffff; --text:#111; --muted:#666; --card:#f5f7fb; --accent:#1e63ff; --accent-2:#0e49c9; --ok:#10b981; --border:#e5e7eb;
 
     }
 
-    :root.light{
+    [data-theme="dark"]{
 
-      --bg:#f6f8fc; --panel:#ffffff; --muted:#5b6572; --text:#101725; --brand:#156ee1; --ok:#15803d; --border:#e6eaf2; --card:#ffffff;
+      --bg:#0b0f17; --text:#e9eef9; --muted:#93a1bd; --card:#121826; --accent:#4c8dff; --accent-2:#2a6af3; --ok:#34d399; --border:#1f2737;
 
     }
 
@@ -32,139 +36,93 @@
 
       margin:0; background:var(--bg); color:var(--text);
 
-      font: 15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+      display:flex; flex-direction:column;
 
     }
 
-    .wrap{max-width:960px;margin:0 auto;padding:28px 18px 60px}
+    .bar{
 
-    header{
+      position:fixed; inset:0 0 auto 0; height:56px; display:flex; align-items:center; justify-content:space-between;
 
-      display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;
-
-    }
-
-    .brand{display:flex;align-items:center;gap:14px}
-
-    .logo{
-
-      width:48px;height:48px;display:grid;place-items:center;border-radius:12px;
-
-      background:linear-gradient(135deg,var(--brand),#7cc8ff);
-
-      color:white;font-weight:800;font-size:22px;letter-spacing:1px;
-
-      box-shadow:0 8px 24px rgba(30,144,255,.35);
+      padding:0 16px; background:var(--bg); border-bottom:1px solid var(--border); z-index:10;
 
     }
 
-    h1{margin:0;font-size:34px;letter-spacing:.3px}
+    .bar-left, .bar-right{display:flex; gap:12px; align-items:center}
 
-    .subtitle{margin:2px 0 0;color:var(--muted);font-size:16px}
+    .toggle, .icon-btn{
 
-    .actions{display:flex;gap:10px;align-items:center}
+      display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid var(--border);
 
-    .btn, button{
-
-      appearance:none;border:1px solid var(--border);background:var(--panel);color:var(--text);
-
-      padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600;
+      border-radius:8px; color:var(--text); background:transparent; cursor:pointer; font-weight:600;
 
     }
 
-    .btn.primary{background:var(--brand);border-color:transparent;color:#fff}
+    .icon-btn{width:34px; padding:0; font-size:18px}
 
-    .btn.ghost{background:transparent}
+    .rocket{filter:drop-shadow(0 0 0 rgba(0,0,0,0))}
 
-    .toggle{
+    main{flex:1; display:flex; align-items:center; justify-content:center; padding:96px 16px 40px}
 
-      display:inline-flex;align-items:center;gap:10px;color:var(--muted);user-select:none;
+    .wrap{width:100%; max-width:760px; text-align:center}
 
-    }
+    h1{font-size:44px; line-height:1.1; margin:8px 0 6px; letter-spacing:0.2px}
 
-    .switch{position:relative;width:44px;height:26px;background:var(--border);border-radius:26px;transition:.2s}
+    .subtitle{font-size:18px; color:var(--muted); margin-bottom:22px}
 
-    .switch::after{
+    .badge{display:inline-block; font-weight:700; color:var(--accent)}
 
-      content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+    .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px; margin:12px auto; text-align:left}
 
-      background:#fff;transition:.2s;
+    .steps{display:grid; gap:12px}
 
-    }
+    .step{background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px 14px}
 
-    :root.light .switch{background:#b6bfd0}
+    .step.locked{opacity:.45; pointer-events:none}
 
-    :root.light .switch::after{left:21px}
+    .row{display:flex; gap:12px; align-items:center}
 
-    main{
+    .row input{flex:1; height:40px; padding:0 12px; border:1px solid var(--border); border-radius:10px; background:transparent; color:var(--text)}
 
-      background:var(--panel);border:1px solid var(--border);
+    .btn{
 
-      border-radius:16px;padding:22px;box-shadow:0 8px 24px rgba(13,21,36,.25);
+      height:40px; padding:0 14px; border:none; border-radius:10px; font-weight:700; color:#fff;
 
-    }
-
-    .grid{
-
-      display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-
-      margin-top:4px;
+      background:var(--accent); cursor:pointer;
 
     }
 
-    .card{
+    .btn:disabled{opacity:.5; cursor:not-allowed}
 
-      background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;
+    .btn.ok{background:var(--ok); color:#052e22}
 
-    }
+    .market{margin-top:16px}
 
-    .step{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin-bottom:8px}
-
-    .step .num{
-
-      width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
-
-      background:var(--brand);color:#fff;font-size:12px;font-weight:700;
-
-    }
-
-    .card h3{margin:0 0 10px;font-size:16px}
-
-    input, .input{
-
-      width:100%;padding:12px 12px;border-radius:10px;border:1px solid var(--border);
-
-      background:var(--panel);color:var(--text);
-
-    }
-
-    .cta{display:flex;gap:10px;margin-top:10px}
+    .market .pair{display:flex; justify-content:space-between; padding:10px 0; border-top:1px dashed var(--border)}
 
     .muted{color:var(--muted)}
 
-    .market{
+    /* Admin modal */
 
-      display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;
+    .modal{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:50}
 
-    }
+    .modal .box{width:min(760px,92vw); background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:16px; padding:18px}
 
-    .kpi{
+    .modal h3{margin:0 0 8px}
 
-      background:var(--panel);border:1px dashed var(--border);border-radius:10px;padding:10px 12px
+    .grid{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 
-    }
+    .kv{display:flex; flex-direction:column; gap:6px}
 
-    .kpi b{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+    .kv input{height:38px; padding:0 10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--text)}
 
-    .kpi span{font-size:18px;font-weight:800}
+    .modal .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:10px}
 
-    footer{margin-top:18px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    a.link{color:var(--accent); text-decoration:none}
 
-    a{color:var(--brand);text-decoration:none}
-
-    .ok{color:var(--ok)}
-
-    .hide{display:none}
+    .tiny{font-size:12px}
 
   </style>
 
@@ -172,187 +130,199 @@
 
 <body>
 
-  <div class="wrap">
+  <!-- Top bar -->
 
-    <header>
+  <div class="bar">
 
-      <div class="brand">
+    <div class="bar-left">
 
-        <div class="logo">AXO</div>
+      <button id="themeBtn" class="toggle" title="Toggle light/dark">☀️ Light</button>
 
-        <div>
+    </div>
 
-          <h1>AXO</h1>
+    <div class="bar-right">
 
-          <div class="subtitle">XRPL Signup & Referral Engine</div>
+      <!-- Discreet admin: small rocket -->
+
+      <button id="adminBtn" class="icon-btn" title=" " aria-label=" "><span class="rocket">🚀</span></button>
+
+    </div>
+
+  </div>
+
+
+
+  <main>
+
+    <div class="wrap">
+
+      <h1>AXO</h1>
+
+      <div class="subtitle">XRPL Signup & Referral Engine</div>
+
+      <div class="muted tiny" style="margin-bottom:10px">
+
+        Sign up and claim your <span class="badge">1000 AXO</span> bonus. Share your code to earn <span class="badge">300 AXO</span> per referral.
+
+      </div>
+
+
+
+      <!-- Steps -->
+
+      <div class="card">
+
+        <div class="steps">
+
+          <!-- Step 1: Create/Connect wallet -->
+
+          <div class="step" id="s1">
+
+            <div class="row">
+
+              <input id="xumm" placeholder="Enter your XUMM Wallet Address (r...)" />
+
+              <button id="btnS1" class="btn">Connect Wallet</button>
+
+            </div>
+
+            <div class="tiny muted" style="margin-top:6px">
+
+              Don’t have XUMM? <a class="link" href="https://xumm.app" target="_blank" rel="noopener">Install XUMM</a>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Step 2: Set AXO trustline -->
+
+          <div class="step locked" id="s2">
+
+            <div class="row">
+
+              <input id="trust" value="AXO TrustLine (via XUMM)" disabled />
+
+              <button id="btnS2" class="btn">Set TrustLine</button>
+
+            </div>
+
+            <div class="tiny muted" style="margin-top:6px">
+
+              This will open a signed TrustSet for token <strong>AXO</strong> on XRPL in XUMM.
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Step 3: Claim signup bonus -->
+
+          <div class="step locked" id="s3">
+
+            <div class="row">
+
+              <input id="code" placeholder="Referral code (optional)" />
+
+              <button id="btnS3" class="btn ok">Claim 1000 AXO</button>
+
+            </div>
+
+            <div class="tiny muted" style="margin-top:6px">
+
+              If you have a referral code, enter it before claiming.
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Step 4: Purchase AXO with XRP (optional) -->
+
+          <div class="step locked" id="s4">
+
+            <div class="row">
+
+              <input id="buyAmt" placeholder="Amount in XRP (e.g. 10)" />
+
+              <button id="btnS4" class="btn">Purchase AXO</button>
+
+            </div>
+
+            <div class="tiny muted" style="margin-top:6px">
+
+              Optional. Creates a payment request in XUMM.
+
+            </div>
+
+          </div>
 
         </div>
+
+      </div>
+
+
+
+      <!-- Live Market -->
+
+      <div class="card market">
+
+        <div class="row" style="justify-content:space-between">
+
+          <div><strong>Live Market Data</strong></div>
+
+          <div class="tiny muted" id="m_source"></div>
+
+        </div>
+
+        <div class="pair"><span>AXO Price (USD)</span><span id="m_axo">$—</span></div>
+
+        <div class="pair"><span>XRP Price (USD)</span><span id="m_xrp">$—</span></div>
+
+        <div class="pair"><span>1 XRP ≈</span><span id="m_rate">— AXO</span></div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+
+
+  <!-- Admin Modal -->
+
+  <div class="modal" id="adminModal" aria-hidden="true">
+
+    <div class="box">
+
+      <h3>AXO Admin</h3>
+
+      <div class="grid">
+
+        <div class="kv"><label>Signup Bonus (AXO)</label><input id="adm_bonus" value="1000"></div>
+
+        <div class="kv"><label>Referral Reward (AXO)</label><input id="adm_ref" value="300"></div>
+
+        <div class="kv"><label>Gate: Require TrustLine</label><input id="adm_gate" value="true"></div>
+
+        <div class="kv"><label>Whitelist (comma XRPL r-…)</label><input id="adm_white" placeholder="optional"></div>
 
       </div>
 
       <div class="actions">
 
-        <a class="btn ghost" href="/admin" title="Admin">Admin</a>
+        <button class="toggle" id="admClose">Close</button>
 
-        <label class="toggle">
-
-          <span>Light</span>
-
-          <span class="switch" id="themeSwitch" role="button" aria-label="Theme toggle"></span>
-
-          <span>Dark</span>
-
-        </label>
+        <button class="btn" id="admSave">Save</button>
 
       </div>
 
-    </header>
+      <div class="tiny muted">Tip: these values save server‑side for the session in this demo build.</div>
 
-
-
-    <main>
-
-      <div class="grid">
-
-        <!-- Step 1 -->
-
-        <section class="card">
-
-          <div class="step"><span class="num">1</span>Connect XUMM Wallet</div>
-
-          <h3>Connect your XRPL wallet</h3>
-
-          <p class="muted">Opens XUMM mobile app to connect your wallet securely.</p>
-
-          <button class="btn primary" id="btnXumm">Connect XUMM Wallet</button>
-
-        </section>
-
-
-
-        <!-- Step 2 -->
-
-        <section class="card">
-
-          <div class="step"><span class="num">2</span>Set AXO Trust Line</div>
-
-          <h3>Trust Line</h3>
-
-          <p class="muted">After connecting, set the trust line for AXO on XRPL.</p>
-
-          <button class="btn" id="btnTrust" disabled>Set Trust Line</button>
-
-        </section>
-
-
-
-        <!-- Step 3 -->
-
-        <section class="card">
-
-          <div class="step"><span class="num">3</span>Claim Bonus</div>
-
-          <h3>Signup Bonus</h3>
-
-          <p class="muted">Get your 100 AXO bonus after wallet verification.</p>
-
-          <button class="btn" id="btnBonus" disabled>Claim 100 AXO</button>
-
-        </section>
-
-
-
-        <!-- Step 4 -->
-
-        <section class="card">
-
-          <div class="step"><span class="num">4</span>Invite Friends</div>
-
-          <h3>Referral</h3>
-
-          <input id="refLink" class="input" placeholder="Your referral link will appear here" readonly />
-
-          <div class="cta">
-
-            <button class="btn" id="btnCopy" disabled>Copy Link</button>
-
-            <button class="btn" id="btnShare" disabled>Share</button>
-
-          </div>
-
-        </section>
-
-
-
-        <!-- Step 5 -->
-
-        <section class="card">
-
-          <div class="step"><span class="num">5</span>Purchase AXO</div>
-
-          <h3>Buy with XRP</h3>
-
-          <p class="muted">After claiming your bonus, you can buy more AXO using XRP.</p>
-
-          <button class="btn" id="btnBuy" disabled>Buy AXO</button>
-
-        </section>
-
-
-
-        <!-- Step 6 -->
-
-        <section class="card">
-
-          <div class="step"><span class="num">6</span>Live Market</div>
-
-          <h3>Live Market Data</h3>
-
-          <div class="market">
-
-            <div class="kpi"><b>AXO Price (USD)</b><span id="kpiAxo">$—</span></div>
-
-            <div class="kpi"><b>XRP Price (USD)</b><span id="kpiXrp">$—</span></div>
-
-            <div class="kpi"><b>1 XRP ≈ (AXO)</b><span id="kpiRate">— AXO</span></div>
-
-            <div class="kpi"><b>Status</b><span id="kpiStatus" class="ok">Online</span></div>
-
-          </div>
-
-        </section>
-
-      </div>
-
-      <div class="card" style="margin-top:16px">
-
-        <h3>Quick Signup</h3>
-
-        <input id="email" class="input" placeholder="Enter your email (optional)" />
-
-        <input id="refCode" class="input" placeholder="Referral Code (optional)" style="margin-top:8px"/>
-
-        <div class="cta">
-
-          <button class="btn primary" id="btnSignup">SIGN UP</button>
-
-        </div>
-
-        <div class="muted" style="margin-top:6px">By continuing you agree to the terms.</div>
-
-      </div>
-
-    </main>
-
-
-
-    <footer>
-
-      <div>© <span id="yr"></span> AXO</div>
-
-      <div><a href="/api/hello">API test</a> · <a href="/api/market">Market JSON</a></div>
-
-    </footer>
+    </div>
 
   </div>
 
@@ -360,145 +330,187 @@
 
   <script>
 
-    // ---------- Theme ----------
+    // ===== Theme toggle =====
 
-    (function(){
+    const html = document.documentElement;
 
-      const root = document.documentElement;
+    const themeBtn = document.getElementById('themeBtn');
 
-      const saved = localStorage.getItem('axo_theme');
+    function setTheme(t){ html.setAttribute('data-theme', t); themeBtn.textContent = t==='light'?'☀️ Light':'🌙 Dark'; }
 
-      if(saved === 'light'){ root.classList.add('light'); }
+    setTheme(localStorage.getItem('axo_theme') || 'light');
 
-      const sw = document.getElementById('themeSwitch');
+    themeBtn.onclick = () => {
 
-      sw.addEventListener('click',()=>{
+      const t = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
 
-        root.classList.toggle('light');
+      setTheme(t); localStorage.setItem('axo_theme', t);
 
-        localStorage.setItem('axo_theme', root.classList.contains('light') ? 'light' : 'dark');
-
-      });
-
-    })();
+    };
 
 
 
-    // ---------- Market box ----------
+    // ===== Step logic =====
 
-    async function refreshMarket(){
+    const s1 = document.getElementById('s1'), s2 = document.getElementById('s2'),
+
+          s3 = document.getElementById('s3'), s4 = document.getElementById('s4');
+
+    const btnS1 = document.getElementById('btnS1'), btnS2 = document.getElementById('btnS2'),
+
+          btnS3 = document.getElementById('btnS3'), btnS4 = document.getElementById('btnS4');
+
+    function unlock(el){ el.classList.remove('locked'); }
+
+
+
+    btnS1.onclick = async () => {
+
+      const addr = document.getElementById('xumm').value.trim();
+
+      if (!addr) return alert('Please enter your XUMM wallet address (r...)');
+
+      btnS1.disabled = true;
+
+      const r = await fetch('/api/connect', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({address:addr})});
+
+      const j = await r.json().catch(()=>({ok:false}));
+
+      btnS1.disabled = false;
+
+      if (j.ok){ unlock(s2); alert('Wallet connected. Proceed to set the AXO trustline.'); }
+
+      else alert(j.error || 'Could not connect wallet');
+
+    };
+
+
+
+    btnS2.onclick = async () => {
+
+      btnS2.disabled = true;
+
+      const r = await fetch('/api/trustline', {method:'POST'});
+
+      const j = await r.json().catch(()=>({ok:false}));
+
+      btnS2.disabled = false;
+
+      if (j.ok){ unlock(s3); alert('TrustLine approved. You can now claim your bonus.'); }
+
+      else alert(j.error || 'TrustLine action failed');
+
+    };
+
+
+
+    btnS3.onclick = async () => {
+
+      const code = document.getElementById('code').value.trim();
+
+      btnS3.disabled = true;
+
+      const r = await fetch('/api/claim', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({referral:code})});
+
+      const j = await r.json().catch(()=>({ok:false}));
+
+      btnS3.disabled = false;
+
+      if (j.ok){ unlock(s4); alert('1000 AXO claimed! You can optionally purchase more AXO.'); }
+
+      else alert(j.error || 'Claim failed');
+
+    };
+
+
+
+    btnS4.onclick = async () => {
+
+      const amt = parseFloat(document.getElementById('buyAmt').value);
+
+      if (!amt || amt<=0) return alert('Enter a valid XRP amount');
+
+      btnS4.disabled = true;
+
+      const r = await fetch('/api/buy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({xrp:amt})});
+
+      const j = await r.json().catch(()=>({ok:false}));
+
+      btnS4.disabled = false;
+
+      if (j.ok){ alert('Purchase request created in XUMM (demo).'); }
+
+      else alert(j.error || 'Purchase failed');
+
+    };
+
+
+
+    // ===== Admin (rocket) =====
+
+    const adminBtn = document.getElementById('adminBtn');
+
+    const modal = document.getElementById('adminModal');
+
+    const admSave = document.getElementById('admSave');
+
+    const admClose = document.getElementById('admClose');
+
+    adminBtn.onclick = () => { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+
+    admClose.onclick = () => { modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
+
+    admSave.onclick = async () => {
+
+      const payload = {
+
+        signup_bonus: parseInt(document.getElementById('adm_bonus').value||'1000',10),
+
+        referral_reward: parseInt(document.getElementById('adm_ref').value||'300',10),
+
+        require_trustline: (document.getElementById('adm_gate').value||'true').toString()==='true',
+
+        whitelist: (document.getElementById('adm_white').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+
+      };
+
+      const r = await fetch('/api/admin/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+
+      const j = await r.json().catch(()=>({ok:false}));
+
+      if (j.ok) alert('Settings saved (session demo).');
+
+      else alert(j.error || 'Could not save settings');
+
+    };
+
+
+
+    // ===== Live Market Data =====
+
+    async function loadMarket(){
 
       try{
 
-        const r = await fetch('/api/market',{cache:'no-store'});
+        const r = await fetch('/api/market', {cache:'no-store'});
 
-        const j = await r.json();
+        const m = await r.json();
 
-        const fmt = (n) => (n==null||isNaN(n)) ? '—' : (Number(n).toLocaleString(undefined,{maximumFractionDigits:6}));
+        document.getElementById('m_axo').textContent = m.axo_usd ? `$${m.axo_usd}` : '—';
 
-        document.getElementById('kpiAxo').textContent = '$' + fmt(j.axo_usd);
+        document.getElementById('m_xrp').textContent = m.xrp_usd ? `$${m.xrp_usd}` : '—';
 
-        document.getElementById('kpiXrp').textContent = '$' + fmt(j.xrp_usd);
+        document.getElementById('m_rate').textContent = m.axo_per_xrp ? `${m.axo_per_xrp} AXO` : '— AXO';
 
-        document.getElementById('kpiRate').textContent = fmt(j.axo_per_xrp) + ' AXO';
+        document.getElementById('m_source').textContent = m.source ? `Source: ${m.source}` : '';
 
-        document.getElementById('kpiStatus').textContent = 'Online';
+      }catch(e){ /* silent */ }
 
-        document.getElementById('kpiStatus').classList.add('ok');
-
-      }catch(e){
-
-        document.getElementById('kpiStatus').textContent = 'Offline';
-
-        document.getElementById('kpiStatus').classList.remove('ok');
-
-      }
+      setTimeout(loadMarket, 60000);
 
     }
 
-    refreshMarket();
-
-    setInterval(refreshMarket, 60000);
-
-
-
-    // ---------- Demo wiring for buttons (placeholders you can hook later) ----------
-
-    const toast=(m)=>alert(m);
-
-
-
-    document.getElementById('btnXumm').onclick=()=>{
-
-      toast('XUMM connect flow would open here.');
-
-      // simulate wallet connected -> unlock next steps
-
-      document.getElementById('btnTrust').disabled=false;
-
-      document.getElementById('btnBonus').disabled=true;
-
-    };
-
-
-
-    document.getElementById('btnTrust').onclick=()=>{
-
-      toast('Trust line tx would be sent via XUMM.');
-
-      document.getElementById('btnBonus').disabled=false;
-
-    };
-
-
-
-    document.getElementById('btnBonus').onclick=()=>{
-
-      toast('Claim bonus API would be called.');
-
-      const link = location.origin + '/?ref=' + Math.random().toString(36).slice(2,8);
-
-      refLink.value = link;
-
-      btnCopy.disabled = btnShare.disabled = false;
-
-      document.getElementById('btnBuy').disabled=false;
-
-    };
-
-
-
-    btnCopy.onclick=()=>{ refLink.select(); document.execCommand('copy'); toast('Referral link copied.'); };
-
-    btnShare.onclick=()=>{ toast('Share sheet would open.'); };
-
-
-
-    document.getElementById('btnBuy').onclick=()=>toast('Deep-link to DEX would open.');
-
-
-
-    document.getElementById('btnSignup').onclick=async()=>{
-
-      const email = document.getElementById('email').value.trim();
-
-      const code  = document.getElementById('refCode').value.trim();
-
-      try{
-
-        const r = await fetch('/api/hello'); // placeholder ping
-
-        if(r.ok) toast('Signup recorded' + (email?` for ${email}`:'') + (code?` with code ${code}`:'') + '.');
-
-        else toast('Signup API not available yet.');
-
-      }catch{ toast('Network error.'); }
-
-    };
-
-
-
-    document.getElementById('yr').textContent=new Date().getFullYear();
+    loadMarket();
 
   </script>
 
