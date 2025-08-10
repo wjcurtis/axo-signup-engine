@@ -14,7 +14,9 @@
 
 :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
 
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+*{box-sizing:border-box}
+
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
 .wrap{max-width:1100px;margin:40px auto;padding:20px}
 
@@ -78,7 +80,7 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
       <button onclick="login()">Unlock</button>
 
-      <button onclick="location.href='/'">Back</button>
+      <button onclick="goHome()">Back</button>
 
     </div>
 
@@ -95,6 +97,8 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
     <h1>AXO Admin</h1>
 
 
+
+    <!-- Incentives -->
 
     <h2>Incentives</h2>
 
@@ -116,33 +120,25 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 
 
-    <h2>Buying & Pricing</h2>
+    <!-- Pricing -->
+
+    <h2>Pricing & Flow</h2>
 
     <div class="grid">
 
       <div><label>AXO Price (USD, static)</label><input id="axo_price_usd" type="number" min="0" step="0.0001"></div>
 
-      <div>
+      <div><label>Buy Flow Enabled</label><select id="buy_enabled"><option>true</option><option>false</option></select></div>
 
-        <label>Buy Flow Enabled</label>
-
-        <select id="buy_enabled"><option>true</option><option>false</option></select>
-
-      </div>
-
-      <div>
-
-        <label>Quick Signup Enabled</label>
-
-        <select id="quick_signup_enabled"><option>false</option><option>true</option></select>
-
-      </div>
+      <div><label>Quick Signup Enabled</label><select id="quick_signup_enabled"><option>false</option><option>true</option></select></div>
 
     </div>
 
 
 
-    <h2>Fees & Treasury</h2>
+    <!-- Fees / Vault -->
+
+    <h2>Fees & Vault</h2>
 
     <div class="grid">
 
@@ -155,6 +151,8 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
     </div>
 
 
+
+    <!-- Abuse & Limits -->
 
     <h2>Abuse & Limits</h2>
 
@@ -206,9 +204,13 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
     <div class="actions">
 
-      <button onclick="logout()">Close</button>
+      <!-- Close will log out and send you home so next entry asks for PIN -->
 
-      <button class="primary" onclick="save()">Save</button>
+      <button onclick="logoutAndHome()">Close</button>
+
+      <!-- Save will save, then log out and send you home -->
+
+      <button class="primary" onclick="saveAndExit()">Save</button>
 
     </div>
 
@@ -222,6 +224,10 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 <script>
 
+function goHome(){ location.href = '/'; }
+
+
+
 async function isAuthed(){
 
   const r = await fetch('/api/admin/config');
@@ -229,6 +235,8 @@ async function isAuthed(){
   return r.status === 200;
 
 }
+
+
 
 async function show(){
 
@@ -238,11 +246,19 @@ async function show(){
 
 }
 
+
+
 async function login(){
 
   const pin = document.getElementById('pin').value.trim();
 
-  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+  const r = await fetch('/api/admin/login',{
+
+    method:'POST', headers:{'Content-Type':'application/json'},
+
+    body: JSON.stringify({pin})
+
+  });
 
   const m = document.getElementById('pinMsg');
 
@@ -252,15 +268,41 @@ async function login(){
 
 }
 
+
+
 async function logout(){
+
+  // Clears the admin cookie on the server
 
   await fetch('/api/admin/logout',{method:'POST'});
 
-  // Force re‑prompt next time:
+}
 
-  location.href = '/';
+
+
+async function logoutAndHome(){
+
+  await logout();
+
+  goHome();
 
 }
+
+
+
+async function saveAndExit(){
+
+  const ok = await save(true);   // true = silent (no inline message)
+
+  // Regardless of save success, we log out to enforce re‑prompt next time.
+
+  await logout();
+
+  goHome();
+
+}
+
+
 
 async function load(){
 
@@ -280,7 +322,9 @@ async function load(){
 
     'daily_cap_axo','max_claims_per_wallet','rate_limit_claims_per_hour',
 
-    'whitelist_addresses','blacklist_addresses','airdrop_paused','maintenance_mode'
+    'whitelist_addresses','blacklist_addresses',
+
+    'airdrop_paused','maintenance_mode'
 
   ]) {
 
@@ -298,49 +342,53 @@ async function load(){
 
 }
 
-async function save(){
+
+
+async function save(silent=false){
 
   const body = {};
 
-  function val(id){ return document.getElementById(id).value; }
-
-  body.signup_bonus = Number(val('signup_bonus')||0);
-
-  body.referral_reward = Number(val('referral_reward')||0);
-
-  body.require_trustline = (val('require_trustline')==='true');
+  const v = id => document.getElementById(id).value;
 
 
 
-  body.axo_price_usd = Number(val('axo_price_usd')||0.01);
+  body.signup_bonus = Number(v('signup_bonus')||0);
 
-  body.buy_enabled = (val('buy_enabled')==='true');
+  body.referral_reward = Number(v('referral_reward')||0);
 
-  body.quick_signup_enabled = (val('quick_signup_enabled')==='true');
-
-
-
-  body.fee_xrp = Number(val('fee_xrp')||0);
-
-  body.vault_addr = val('vault_addr').trim();
+  body.require_trustline = (v('require_trustline')==='true');
 
 
 
-  body.daily_cap_axo = Number(val('daily_cap_axo')||0);
+  body.axo_price_usd = Number(v('axo_price_usd')||0.01);
 
-  body.max_claims_per_wallet = Number(val('max_claims_per_wallet')||1);
+  body.buy_enabled = (v('buy_enabled')==='true');
 
-  body.rate_limit_claims_per_hour = Number(val('rate_limit_claims_per_hour')||1);
+  body.quick_signup_enabled = (v('quick_signup_enabled')==='true');
 
 
 
-  body.whitelist_addresses = val('whitelist_addresses');
+  body.fee_xrp = Number(v('fee_xrp')||0);
 
-  body.blacklist_addresses = val('blacklist_addresses');
+  body.vault_addr = v('vault_addr').trim();
 
-  body.airdrop_paused = (val('airdrop_paused')==='true');
 
-  body.maintenance_mode = (val('maintenance_mode')==='true');
+
+  body.daily_cap_axo = Number(v('daily_cap_axo')||0);
+
+  body.max_claims_per_wallet = Number(v('max_claims_per_wallet')||1);
+
+  body.rate_limit_claims_per_hour = Number(v('rate_limit_claims_per_hour')||1);
+
+
+
+  body.whitelist_addresses = v('whitelist_addresses');
+
+  body.blacklist_addresses = v('blacklist_addresses');
+
+  body.airdrop_paused = (v('airdrop_paused')==='true');
+
+  body.maintenance_mode = (v('maintenance_mode')==='true');
 
 
 
@@ -352,13 +400,25 @@ async function save(){
 
   });
 
+
+
+  if (silent) return r.ok;
+
+
+
   const el = document.getElementById('msg');
 
   el.textContent = r.ok ? 'Saved.' : 'Save failed';
 
   el.className = 'hint ' + (r.ok?'ok':'err');
 
+  return r.ok;
+
 }
+
+
+
+// Init
 
 const pinCard = document.getElementById('pinCard');
 
