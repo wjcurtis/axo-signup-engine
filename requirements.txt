@@ -3,3 +3,5 @@ flask>=2.2.2,<4
 python-dotenv
 
 gunicorn==22.0
+
+requests
