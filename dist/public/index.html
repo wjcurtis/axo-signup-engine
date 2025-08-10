@@ -86,6 +86,8 @@
 
     <div class="topbar">
 
+      <!-- Light/Dark -->
+
       <div class="icon" id="themeToggle" title="Light/Dark">🌗</div>
 
       <!-- small rocket for admin -->
@@ -222,6 +224,8 @@
 
 
 
+<!-- ====== SCRIPTS ====== -->
+
 <script>
 
 (function(){
@@ -244,7 +248,7 @@
 
 
 
-  // Rocket → /admin
+  // Rocket → secure admin (PIN lock handled on /admin)
 
   document.getElementById('rocket').onclick = (e)=>{
 
@@ -256,13 +260,15 @@
 
 
 
-  // Banner from server config
+  // Banner + button text from server config (if reachable)
 
   async function loadConfig() {
 
     try{
 
       const r = await fetch('/api/admin/config');
+
+      if (!r.ok) return;
 
       const cfg = await r.json();
 
@@ -276,9 +282,11 @@
 
       }
 
-      // Update copy in UI
+      if (typeof cfg.signup_bonus === 'number') {
 
-      document.getElementById('claimBtn').textContent = `Claim ${cfg.signup_bonus} AXO`;
+        document.getElementById('claimBtn').textContent = `Claim ${cfg.signup_bonus} AXO`;
+
+      }
 
     }catch(e){}
 
@@ -304,7 +312,7 @@
 
       set('axo_per_xrp', (m.axo_per_xrp ?? 0).toLocaleString());
 
-      document.getElementById('mkt_src').textContent = `Source ${m.source} • ${new Date((m.ts||0)*1000).toLocaleTimeString()}`;
+      document.getElementById('mkt_src').textContent = `Source ${m.source||'—'} • ${new Date((m.ts||0)*1000).toLocaleTimeString()}`;
 
     }catch(e){}
 
