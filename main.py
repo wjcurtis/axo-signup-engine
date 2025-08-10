@@ -1,10 +1,10 @@
-import os
+# main.py — AXO Utility Hub (Flask + SPA + Market API)
 
-import time
+import os, time, json
 
-import requests
+from typing import Any, Dict
 
-from flask import Flask, send_from_directory, jsonify
+from flask import Flask, send_from_directory, jsonify, make_response, request
 
 
 
@@ -15,6 +15,8 @@ app = Flask(__name__)
 
 
 # ----------------  STATIC FRONTEND (SPA) ----------------
+
+# expects: dist/public/index.html and dist/public/assets/*
 
 STATIC_ROOT = os.path.join(os.getcwd(), "dist", "public")
 
@@ -48,11 +50,11 @@ def serve_assets(filename: str):
 
 
 
-# SPA catch-alls
+# SPA fallback for any non-API 404s
 
 @app.errorhandler(404)
 
-def not_found(_):
+def _spa_on_404(_):
 
     return send_from_directory(STATIC_ROOT, "index.html")
 
@@ -60,9 +62,9 @@ def not_found(_):
 
 @app.route("/<path:unused>")
 
-def spa_catchall(unused=None):
+def spa_catchall(unused: str):
 
-    if unused and unused.startswith('api/'):
+    if unused.startswith("api/"):
 
         return jsonify({"error": "API endpoint not found"}), 404
 
@@ -70,7 +72,7 @@ def spa_catchall(unused=None):
 
 
 
-# ------------- SAMPLE API -------------
+# -------------------  SIMPLE APIS -------------------
 
 @app.route("/api/hello")
 
@@ -80,65 +82,55 @@ def api_hello():
 
 
 
-# ------------- LIVE MARKET API -------------
+# /api/market — live XRP price (USD), fixed AXO price (USD), and AXO per XRP
 
-# Config: set AXO price in USD (can override via env var on Render)
+# Uses a tiny in-memory cache to avoid rate limits; refreshes every 60s.
 
-AXO_USD = float(os.getenv("AXO_USD", "0.01"))
+_AXO_USD = 0.01  # your fixed AXO price
 
-
-
-# very tiny cache to avoid hammering the price API
-
-_price_cache = {"ts": 0, "data": None}
-
-CACHE_SECONDS = 45
+_cache: Dict[str, Any] = {"ts": 0, "xrp_usd": None}
 
 
 
-def get_xrp_usd():
+def _get_xrp_usd() -> float:
 
-    """Fetch XRP/USD from CoinGecko (simple, no API key)."""
+    # refresh every 60 seconds
 
-    # If cached and fresh, return it
+    if time.time() - (_cache["ts"] or 0) < 60 and _cache["xrp_usd"] is not None:
 
-    now = time.time()
-
-    if _price_cache["data"] and now - _price_cache["ts"] < CACHE_SECONDS:
-
-        return _price_cache["data"]
+        return _cache["xrp_usd"]
 
 
 
-    url = "https://api.coingecko.com/api/v3/simple/price"
-
-    params = {"ids": "ripple", "vs_currencies": "usd"}
+    import requests  # listed in requirements.txt
 
     try:
 
-        r = requests.get(url, params=params, timeout=8)
+        # CoinGecko public endpoint (no API key)
 
-        r.raise_for_status()
+        url = "https://api.coingecko.com/api/v3/simple/price"
 
-        xrp_usd = float(r.json()["ripple"]["usd"])
+        resp = requests.get(url, params={"ids": "ripple", "vs_currencies": "usd"}, timeout=6)
 
-        _price_cache["data"] = xrp_usd
+        data = resp.json()
 
-        _price_cache["ts"] = now
+        xrp = float(data.get("ripple", {}).get("usd", 0.0))
 
-        return xrp_usd
+        if xrp > 0:
+
+            _cache["xrp_usd"] = xrp
+
+            _cache["ts"] = time.time()
+
+            return xrp
 
     except Exception as e:
 
-        # If error and we had a previous value, serve it
+        print("xrp fetch error:", e)
 
-        if _price_cache["data"]:
+    # fallback to last known or 0
 
-            return _price_cache["data"]
-
-        # last resort default
-
-        return 0.0
+    return float(_cache["xrp_usd"] or 0.0)
 
 
 
@@ -146,48 +138,44 @@ def get_xrp_usd():
 
 def api_market():
 
-    """
+    xrp_usd = _get_xrp_usd()
 
-    Returns:
+    axo_usd = _AXO_USD
 
-      {
+    axo_per_xrp = (xrp_usd / axo_usd) if axo_usd > 0 else 0.0
 
-        "xrp_usd": 3.29,
 
-        "axo_usd": 0.01,
 
-        "xrp_per_axo": 0.00304,
+    payload = {
 
-        "axo_per_xrp": 329.0,
-
-        "source": "coingecko",
-
-        "cached_seconds": 45
-
-      }
-
-    """
-
-    xrp_usd = get_xrp_usd()
-
-    axo_usd = AXO_USD
-
-    axo_per_xrp = (xrp_usd / axo_usd) if (axo_usd and xrp_usd) else 0.0
-
-    xrp_per_axo = (axo_usd / xrp_usd) if (axo_usd and xrp_usd) else 0.0
-
-    return jsonify({
+        "axo_usd": round(axo_usd, 4),
 
         "xrp_usd": round(xrp_usd, 6),
 
-        "axo_usd": round(axo_usd, 6),
-
         "axo_per_xrp": round(axo_per_xrp, 6),
-
-        "xrp_per_axo": round(xrp_per_axo, 6),
 
         "source": "coingecko",
 
-        "cached_seconds": CACHE_SECONDS
+        "cached_seconds": int(time.time() - (_cache["ts"] or 0)) if _cache["ts"] else None,
 
-    })
+        "ts": int(time.time()),
+
+    }
+
+    res = make_response(jsonify(payload))
+
+    # Tell browsers not to cache this (your script already requests no-store)
+
+    res.headers["Cache-Control"] = "no-store, max-age=0"
+
+    # Basic CORS so your SPA can fetch from same origin (and future subpaths)
+
+    res.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
+
+    res.headers["Vary"] = "Origin"
+
+    return res
+
+
+
+# No app.run() — gunicorn runs via Procfile/run_flask.py on Render
