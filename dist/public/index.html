@@ -1,14 +1,71 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <script type="module" crossorigin src="/assets/index-DnkrxHzv.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B1ClYITf.css">
-  </head>
-  <body>
-    <div id="root"></div>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
-    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
-  </body>
-</html>
+<script>
+
+(async function refreshMarketBox() {
+
+  const fmt = (n) => Number(n).toLocaleString(undefined, {maximumFractionDigits: 6});
+
+  try {
+
+    const r = await fetch('/api/market', {cache: 'no-store'});
+
+    const m = await r.json();
+
+
+
+    // Use or create placeholders
+
+    function ensureSpan(id, label) {
+
+      let el = document.getElementById(id);
+
+      if (!el) {
+
+        const box = document.querySelector('#live-market-box') || document.body;
+
+        const row = document.createElement('div');
+
+        row.style.margin = '4px 0';
+
+        row.innerHTML = `<strong>${label}:</strong> <span id="${id}"></span>`;
+
+        box.appendChild(row);
+
+        el = document.getElementById(id);
+
+      }
+
+      return el;
+
+    }
+
+
+
+    const axo = ensureSpan('axo-usd', 'AXO Price (USD)');
+
+    const xrp = ensureSpan('xrp-usd', 'XRP Price (USD)');
+
+    const rate = ensureSpan('axo-per-xrp', '1 XRP = (AXO)');
+
+
+
+    axo.textContent = `$${fmt(m.axo_usd)}`;
+
+    xrp.textContent = `$${fmt(m.xrp_usd)}`;
+
+    rate.textContent = `${fmt(m.axo_per_xrp)} AXO`;
+
+
+
+  } catch (e) {
+
+    console.warn('Market refresh failed:', e);
+
+  }
+
+  // refresh about once a minute on active pages
+
+  setTimeout(refreshMarketBox, 60000);
+
+})();
+
+</script>
