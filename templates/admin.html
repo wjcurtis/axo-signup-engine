@@ -4,131 +4,219 @@
 
 <head>
 
-  <meta charset="utf-8"/>
+<meta charset="utf-8"/>
 
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-  <title>AXO Admin</title>
+<title>AXO Admin</title>
 
-  <style>
+<style>
 
-    :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
+:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
 
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent) ,var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
-    .wrap{max-width:900px;margin:4rem auto;padding:2rem}
+.wrap{max-width:1100px;margin:40px auto;padding:20px}
 
-    .card{background:var(--panel);border-radius:14px;padding:24px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
+.card{background:var(--panel);border-radius:14px;padding:22px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
 
-    h1{margin:0 0 16px;font-size:28px;letter-spacing:.5px}
+h1{margin:0 0 16px;font-size:28px;letter-spacing:.4px}
 
-    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+h2{margin:24px 0 8px;font-size:16px;color:#cbd5e1}
 
-    label{display:block;font-size:14px;color:var(--muted);margin:0 0 6px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 
-    input,select{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
+label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
 
-    .row{margin:14px 0}
+input,select,textarea{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
 
-    .actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
+textarea{min-height:82px;resize:vertical}
 
-    button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
+.row{margin:10px 0}
 
-    button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
+.actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
 
-    .pin{max-width:420px;margin:80px auto 0}
+button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
 
-    .pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
+button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
 
-    .hint{color:#94a3b8;font-size:13px;margin-top:6px}
+.pin{max-width:420px;margin:80px auto 0}
 
-    .ok{color:#10b981}
+.pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
 
-    .err{color:#f87171}
+.hint{color:#94a3b8;font-size:13px;margin-top:6px}
 
-  </style>
+.ok{color:#10b981}.err{color:#f87171}
+
+.kv{display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:center}
+
+.kv input{width:100%}
+
+</style>
 
 </head>
 
 <body>
 
-  <div class="wrap">
+<div class="wrap">
 
-    <div id="pinCard" class="card pin" style="display:none">
+  <!-- PIN Card -->
 
-      <h2>Enter Admin PIN</h2>
+  <div id="pinCard" class="card pin" style="display:none">
+
+    <h2>Enter Admin PIN</h2>
+
+    <div class="row">
+
+      <label for="pin">PIN</label>
+
+      <input id="pin" type="password" placeholder="••••••"/>
+
+    </div>
+
+    <div class="actions">
+
+      <button onclick="login()">Unlock</button>
+
+      <button onclick="location.href='/'">Back</button>
+
+    </div>
+
+    <div id="pinMsg" class="hint"></div>
+
+  </div>
+
+
+
+  <!-- Admin Card -->
+
+  <div id="adminCard" class="card" style="display:none">
+
+    <h1>AXO Admin</h1>
+
+
+
+    <h2>Incentives</h2>
+
+    <div class="grid">
+
+      <div><label>Signup Bonus (AXO)</label><input id="signup_bonus" type="number" min="0" step="1"></div>
+
+      <div><label>Referral Reward (AXO)</label><input id="referral_reward" type="number" min="0" step="1"></div>
+
+      <div>
+
+        <label>Require TrustLine</label>
+
+        <select id="require_trustline"><option>true</option><option>false</option></select>
+
+      </div>
+
+    </div>
+
+
+
+    <h2>Buying & Pricing</h2>
+
+    <div class="grid">
+
+      <div><label>AXO Price (USD, static)</label><input id="axo_price_usd" type="number" min="0" step="0.0001"></div>
+
+      <div>
+
+        <label>Buy Flow Enabled</label>
+
+        <select id="buy_enabled"><option>true</option><option>false</option></select>
+
+      </div>
+
+      <div>
+
+        <label>Quick Signup Enabled</label>
+
+        <select id="quick_signup_enabled"><option>false</option><option>true</option></select>
+
+      </div>
+
+    </div>
+
+
+
+    <h2>Fees & Treasury</h2>
+
+    <div class="grid">
+
+      <div><label>Flat Fee (XRP) per claim</label><input id="fee_xrp" type="number" min="0" step="0.000001"></div>
+
+      <div class="kv"><label>Vault Address (r-...)</label><input id="vault_addr" placeholder="r........"/></div>
+
+      <div></div>
+
+    </div>
+
+
+
+    <h2>Abuse & Limits</h2>
+
+    <div class="grid">
+
+      <div><label>Daily Cap (AXO)</label><input id="daily_cap_axo" type="number" min="0" step="1"></div>
+
+      <div><label>Max Claims / Wallet</label><input id="max_claims_per_wallet" type="number" min="1" step="1"></div>
+
+      <div><label>Claims / Hour (rate‑limit)</label><input id="rate_limit_claims_per_hour" type="number" min="1" step="1"></div>
+
+    </div>
+
+    <div class="grid" style="margin-top:10px">
 
       <div class="row">
 
-        <label for="pin">PIN</label>
+        <label>Whitelist (comma r-...)</label>
 
-        <input id="pin" type="password" placeholder="••••••"/>
-
-      </div>
-
-      <div class="actions">
-
-        <button onclick="login()">Unlock</button>
+        <textarea id="whitelist_addresses" placeholder="r...., r...."></textarea>
 
       </div>
 
-      <div id="pinMsg" class="hint"></div>
+      <div class="row">
+
+        <label>Blacklist (comma r-...)</label>
+
+        <textarea id="blacklist_addresses" placeholder="r...., r...."></textarea>
+
+      </div>
+
+      <div>
+
+        <label>Airdrop Paused</label>
+
+        <select id="airdrop_paused"><option>false</option><option>true</option></select>
+
+        <div class="row"></div>
+
+        <label>Maintenance Mode</label>
+
+        <select id="maintenance_mode"><option>false</option><option>true</option></select>
+
+      </div>
 
     </div>
 
 
 
-    <div id="adminCard" class="card" style="display:none">
+    <div class="actions">
 
-      <h1>AXO Admin</h1>
+      <button onclick="logout()">Close</button>
 
-      <div class="grid">
-
-        <div>
-
-          <label>Signup Bonus (AXO)</label>
-
-          <input id="signup_bonus" type="number" min="0" step="1" value="1000"/>
-
-        </div>
-
-        <div>
-
-          <label>Referral Reward (AXO)</label>
-
-          <input id="referral_reward" type="number" min="0" step="1" value="300"/>
-
-        </div>
-
-        <div>
-
-          <label>Gate: Require TrustLine</label>
-
-          <select id="require_trustline">
-
-            <option value="true" selected>true</option>
-
-            <option value="false">false</option>
-
-          </select>
-
-        </div>
-
-      </div>
-
-      <div class="actions">
-
-        <button onclick="location.href='/'">Close</button>
-
-        <button class="primary" onclick="save()">Save</button>
-
-      </div>
-
-      <div id="msg" class="hint"></div>
+      <button class="primary" onclick="save()">Save</button>
 
     </div>
+
+    <div id="msg" class="hint"></div>
 
   </div>
+
+</div>
 
 
 
@@ -142,25 +230,13 @@ async function isAuthed(){
 
 }
 
-
-
 async function show(){
 
-  if (await isAuthed()){
+  if(await isAuthed()){ await load(); adminCard.style.display=''; }
 
-    load();
-
-    document.getElementById('adminCard').style.display='';
-
-  }else{
-
-    document.getElementById('pinCard').style.display='';
-
-  }
+  else { pinCard.style.display=''; }
 
 }
-
-
 
 async function login(){
 
@@ -168,23 +244,23 @@ async function login(){
 
   const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
 
-  const msg = document.getElementById('pinMsg');
+  const m = document.getElementById('pinMsg');
 
-  if(r.ok){
+  if(r.ok){ m.textContent='Unlocked.'; m.className='hint ok'; location.reload(); }
 
-    msg.textContent = 'Unlocked.'; msg.className='hint ok';
-
-    location.reload();
-
-  }else{
-
-    msg.textContent = 'Invalid PIN.'; msg.className='hint err';
-
-  }
+  else   { m.textContent='Invalid PIN.'; m.className='hint err'; }
 
 }
 
+async function logout(){
 
+  await fetch('/api/admin/logout',{method:'POST'});
+
+  // Force re‑prompt next time:
+
+  location.href = '/';
+
+}
 
 async function load(){
 
@@ -192,39 +268,101 @@ async function load(){
 
   if(!r.ok) return;
 
-  const data = (await r.json()).data || {};
+  const s = (await r.json()).data || {};
 
-  document.getElementById('signup_bonus').value = data.signup_bonus ?? 1000;
+  for (const k of [
 
-  document.getElementById('referral_reward').value = data.referral_reward ?? 300;
+    'signup_bonus','referral_reward','require_trustline',
 
-  document.getElementById('require_trustline').value = String(data.require_trustline ?? true);
+    'axo_price_usd','buy_enabled','quick_signup_enabled',
+
+    'fee_xrp','vault_addr',
+
+    'daily_cap_axo','max_claims_per_wallet','rate_limit_claims_per_hour',
+
+    'whitelist_addresses','blacklist_addresses','airdrop_paused','maintenance_mode'
+
+  ]) {
+
+    const el = document.getElementById(k);
+
+    if(!el) continue;
+
+    if (el.tagName==='SELECT') el.value = String(s[k]);
+
+    else if (el.tagName==='TEXTAREA') el.value = (s[k]||[]).join(', ');
+
+    else el.value = s[k] ?? '';
+
+  }
 
 }
 
-
-
 async function save(){
 
-  const body = {
+  const body = {};
 
-    signup_bonus: Number(document.getElementById('signup_bonus').value || 0),
+  function val(id){ return document.getElementById(id).value; }
 
-    referral_reward: Number(document.getElementById('referral_reward').value || 0),
+  body.signup_bonus = Number(val('signup_bonus')||0);
 
-    require_trustline: document.getElementById('require_trustline').value === 'true'
+  body.referral_reward = Number(val('referral_reward')||0);
 
-  };
+  body.require_trustline = (val('require_trustline')==='true');
 
-  const r = await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+
+
+  body.axo_price_usd = Number(val('axo_price_usd')||0.01);
+
+  body.buy_enabled = (val('buy_enabled')==='true');
+
+  body.quick_signup_enabled = (val('quick_signup_enabled')==='true');
+
+
+
+  body.fee_xrp = Number(val('fee_xrp')||0);
+
+  body.vault_addr = val('vault_addr').trim();
+
+
+
+  body.daily_cap_axo = Number(val('daily_cap_axo')||0);
+
+  body.max_claims_per_wallet = Number(val('max_claims_per_wallet')||1);
+
+  body.rate_limit_claims_per_hour = Number(val('rate_limit_claims_per_hour')||1);
+
+
+
+  body.whitelist_addresses = val('whitelist_addresses');
+
+  body.blacklist_addresses = val('blacklist_addresses');
+
+  body.airdrop_paused = (val('airdrop_paused')==='true');
+
+  body.maintenance_mode = (val('maintenance_mode')==='true');
+
+
+
+  const r = await fetch('/api/admin/config',{
+
+    method:'POST', headers:{'Content-Type':'application/json'},
+
+    body: JSON.stringify(body)
+
+  });
 
   const el = document.getElementById('msg');
 
   el.textContent = r.ok ? 'Saved.' : 'Save failed';
 
-  el.className = 'hint ' + (r.ok ? 'ok' : 'err');
+  el.className = 'hint ' + (r.ok?'ok':'err');
 
 }
+
+const pinCard = document.getElementById('pinCard');
+
+const adminCard = document.getElementById('adminCard');
 
 show();
 
