@@ -1,0 +1,467 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>AXO Admin</title>
+
+  <style>
+
+    :root{--bg:#0f1216;--panel:#161a20;--txt:#e8eef7;--muted:#93a1b5;--accent:#2d7dff;--ok:#22c55e;--bad:#ef4444}
+
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Arial,Helvetica,sans-serif}
+
+    body{margin:0;background:var(--bg);color:var(--txt);display:flex;align-items:center;justify-content:center;min-height:100vh}
+
+    .wrap{width:min(960px,92vw)}
+
+    .card{background:var(--panel);padding:28px;border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
+
+    .title{font-size:28px;font-weight:800;margin:0 0 18px}
+
+    .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin:18px 0}
+
+    .field{display:flex;flex-direction:column;gap:8px}
+
+    label{font-size:13px;color:var(--muted)}
+
+    input,textarea,select{background:#0d1117;border:1px solid #2b3240;color:var(--txt);border-radius:10px;padding:12px 14px;outline:none}
+
+    input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+
+    .btns{display:flex;gap:12px;justify-content:flex-end;margin-top:12px}
+
+    button{border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer;background:#273242;color:#dbe7ff}
+
+    button.primary{background:var(--accent);color:white}
+
+    button.good{background:var(--ok);color:#03240d}
+
+    button.bad{background:#2b1c1c;color:#ffd7d7;border:1px solid #4a2323}
+
+    .muted{color:var(--muted);font-size:12px;margin-top:8px}
+
+    .hidden{display:none}
+
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+
+    th,td{border-bottom:1px solid #263041;padding:10px 8px;text-align:left;font-size:13px}
+
+    .pinbox{max-width:420px;margin:0 auto}
+
+    .pinbox h1{font-size:26px;margin:0 0 12px;text-align:center}
+
+  </style>
+
+</head>
+
+<body>
+
+  <div class="wrap">
+
+    <!-- LOGIN CARD -->
+
+    <div id="loginCard" class="card pinbox">
+
+      <h1>AXO Admin Access</h1>
+
+      <div class="field">
+
+        <label>Enter Admin PIN</label>
+
+        <input id="pin" type="password" placeholder="••••" />
+
+      </div>
+
+      <div class="btns">
+
+        <button class="primary" onclick="login()">Unlock</button>
+
+      </div>
+
+      <div id="loginMsg" class="muted"></div>
+
+    </div>
+
+
+
+    <!-- ADMIN CARD -->
+
+    <div id="adminCard" class="card hidden">
+
+      <h2 class="title">AXO Admin</h2>
+
+
+
+      <div class="row">
+
+        <div class="field">
+
+          <label>Signup Bonus (AXO)</label>
+
+          <input id="cfg_signup_bonus" type="number" min="0" step="1" placeholder="1000" />
+
+        </div>
+
+        <div class="field">
+
+          <label>Referral Reward (AXO)</label>
+
+          <input id="cfg_referral_reward" type="number" min="0" step="1" placeholder="300" />
+
+        </div>
+
+        <div class="field">
+
+          <label>Gate: Require TrustLine</label>
+
+          <select id="cfg_require_tl">
+
+            <option value="true">true</option>
+
+            <option value="false">false</option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+
+
+      <div class="field">
+
+        <label>Whitelist (comma‑separated XRPL r… addresses — optional)</label>
+
+        <textarea id="cfg_whitelist" rows="2" placeholder="rEXAMPLE1,rEXAMPLE2"></textarea>
+
+      </div>
+
+
+
+      <div class="btns">
+
+        <button onclick="logout()" class="bad">Lock</button>
+
+        <button onclick="refreshMarket()" class="good">Refresh Market</button>
+
+        <button onclick="saveConfig()" class="primary">Save</button>
+
+      </div>
+
+
+
+      <div class="row">
+
+        <div class="field">
+
+          <label>Toggle Signups</label>
+
+          <button onclick="toggleSignups()">Pause/Resume</button>
+
+        </div>
+
+        <div class="field">
+
+          <label>Export Signups CSV</label>
+
+          <button onclick="exportCSV()">Download CSV</button>
+
+        </div>
+
+        <div class="field">
+
+          <label>Recent Signups</label>
+
+          <button onclick="loadSignups()">Load</button>
+
+        </div>
+
+      </div>
+
+
+
+      <div id="signupsWrap" class="hidden">
+
+        <table id="signupsTbl">
+
+          <thead><tr>
+
+            <th>When (UTC)</th><th>Wallet</th><th>Referral</th><th>Bonus</th><th>Status</th>
+
+          </tr></thead>
+
+          <tbody></tbody>
+
+        </table>
+
+      </div>
+
+
+
+      <div id="adminMsg" class="muted"></div>
+
+      <div class="muted">Tip: demo data; values persist only while the service is running.</div>
+
+    </div>
+
+  </div>
+
+
+
+<script>
+
+const API = {
+
+  login: '/api/admin/login',
+
+  config: '/api/admin/config',
+
+  actions: '/api/admin/actions',
+
+  signups: '/api/admin/signups',
+
+  exportCsv: '/api/admin/export.csv'
+
+};
+
+
+
+let token = localStorage.getItem('axo_admin_token') || '';
+
+
+
+function setMsg(elId, msg){ document.getElementById(elId).textContent = msg || ''; }
+
+function show(id, on){ document.getElementById(id).classList.toggle('hidden', !on); }
+
+
+
+async function login(){
+
+  setMsg('loginMsg','');
+
+  const pin = document.getElementById('pin').value.trim();
+
+  if(!pin){ setMsg('loginMsg','Enter your PIN.'); return; }
+
+  try{
+
+    const r = await fetch(API.login, {
+
+      method:'POST', headers:{'Content-Type':'application/json'},
+
+      body: JSON.stringify({ pin })
+
+    });
+
+    if(!r.ok){ setMsg('loginMsg','Invalid PIN.'); return; }
+
+    const j = await r.json();
+
+    token = j.token; localStorage.setItem('axo_admin_token', token);
+
+    await loadConfig();
+
+    show('loginCard', false); show('adminCard', true);
+
+  }catch(e){ setMsg('loginMsg','Login failed.'); }
+
+}
+
+
+
+function logout(){
+
+  localStorage.removeItem('axo_admin_token'); token = '';
+
+  show('adminCard', false); show('loginCard', true);
+
+  setMsg('loginMsg','Locked.');
+
+}
+
+
+
+async function autologin(){
+
+  if(!token) return;
+
+  try{
+
+    const ok = await loadConfig();
+
+    if(ok){ show('loginCard', false); show('adminCard', true); }
+
+  }catch(_){}
+
+}
+
+autologin();
+
+
+
+function authHeaders(){
+
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+
+}
+
+
+
+async function loadConfig(){
+
+  const r = await fetch(API.config, { headers: authHeaders() });
+
+  if(!r.ok) return false;
+
+  const c = await r.json();
+
+  document.getElementById('cfg_signup_bonus').value = c.signup_bonus ?? 1000;
+
+  document.getElementById('cfg_referral_reward').value = c.referral_reward ?? 300;
+
+  document.getElementById('cfg_require_tl').value = String(c.require_trustline ?? true);
+
+  document.getElementById('cfg_whitelist').value = (c.whitelist || []).join(',');
+
+  return true;
+
+}
+
+
+
+async function saveConfig(){
+
+  setMsg('adminMsg','Saving…');
+
+  const body = {
+
+    signup_bonus: Number(document.getElementById('cfg_signup_bonus').value || 0),
+
+    referral_reward: Number(document.getElementById('cfg_referral_reward').value || 0),
+
+    require_trustline: document.getElementById('cfg_require_tl').value === 'true',
+
+    whitelist: (document.getElementById('cfg_whitelist').value || '')
+
+      .split(',').map(s => s.trim()).filter(Boolean)
+
+  };
+
+  const r = await fetch(API.config, {
+
+    method:'POST',
+
+    headers: { 'Content-Type':'application/json', ...authHeaders() },
+
+    body: JSON.stringify(body)
+
+  });
+
+  setMsg('adminMsg', r.ok ? 'Saved.' : 'Save failed.');
+
+}
+
+
+
+async function refreshMarket(){
+
+  setMsg('adminMsg','Refreshing market…');
+
+  const r = await fetch(API.actions, {
+
+    method:'POST',
+
+    headers:{ 'Content-Type':'application/json', ...authHeaders() },
+
+    body: JSON.stringify({ action:'refresh_market' })
+
+  });
+
+  setMsg('adminMsg', r.ok ? 'Market refresh triggered.' : 'Failed to refresh.');
+
+}
+
+
+
+async function toggleSignups(){
+
+  const r = await fetch(API.actions, {
+
+    method:'POST',
+
+    headers:{ 'Content-Type':'application/json', ...authHeaders() },
+
+    body: JSON.stringify({ action:'toggle_signups' })
+
+  });
+
+  setMsg('adminMsg', r.ok ? 'Toggled signups.' : 'Toggle failed.');
+
+}
+
+
+
+async function loadSignups(){
+
+  const r = await fetch(API.signups+'?limit=50', { headers: authHeaders() });
+
+  if(!r.ok){ setMsg('adminMsg','Could not load signups.'); return; }
+
+  const rows = await r.json();
+
+  const tb = document.querySelector('#signupsTbl tbody');
+
+  tb.innerHTML = '';
+
+  for(const x of rows){
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+
+      <td>${x.ts || ''}</td>
+
+      <td>${x.wallet || ''}</td>
+
+      <td>${x.ref || ''}</td>
+
+      <td>${x.bonus ?? ''}</td>
+
+      <td>${x.status || ''}</td>`;
+
+    tb.appendChild(tr);
+
+  }
+
+  show('signupsWrap', true);
+
+}
+
+
+
+function exportCSV(){
+
+  if(!token){ setMsg('adminMsg','Lock/Unlock first.'); return; }
+
+  const a = document.createElement('a');
+
+  a.href = API.exportCsv + '?token=' + encodeURIComponent(token);
+
+  a.download = 'axo_signups.csv';
+
+  document.body.appendChild(a); a.click(); a.remove();
+
+}
+
+</script>
+
+</body>
+
+</html>
