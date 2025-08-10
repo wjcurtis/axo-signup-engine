@@ -1,236 +1,150 @@
-import os
+# main.py — AXO Utility Hub (Flask + SPA + Admin)
 
-import json
+import os, json, time, csv, io, threading
 
-import time
+from pathlib import Path
 
-import pathlib
-
-from typing import Any, Dict, Optional
-
-
-
-import requests
+from typing import Any, Dict
 
 from flask import (
 
-    Flask, request, jsonify, send_from_directory,
+    Flask, request, jsonify, send_from_directory, session,
 
-    redirect, url_for, session, make_response
-
-)
-
-
-
-# ------------------ App & Config ------------------
-
-
-
-app = Flask(__name__)
-
-
-
-# Secret key for Flask sessions (needed for admin login).
-
-# Prefer SECRET_KEY from env; otherwise derive a stable fallback from WALLET_SEED (masked) or a constant.
-
-app.secret_key = os.environ.get("SECRET_KEY") or (
-
-    ("sk_" + (os.environ.get("WALLET_SEED", "_")[:12])).encode("utf-8")
+    render_template, make_response, abort
 
 )
 
-
-
-ADMIN_PIN = os.environ.get("ADMIN_PIN", "").strip()
-
-WALLET_SEED = os.environ.get("WALLET_SEED", "").strip()
-
-AXO_USD_FALLBACK = float(os.environ.get("AXO_USD_FALLBACK", "0.01"))
+import requests
 
 
 
-# Where the built frontend lives
+# ---------- Config & App ----------
 
-ROOT = pathlib.Path(os.getcwd())
-
-STATIC_ROOT = ROOT / "dist" / "public"
-
-INDEX_FILE = STATIC_ROOT / "index.html"
-
-
-
-print("STATIC_ROOT =", STATIC_ROOT)
-
-print("INDEX_FILE exists? ->", INDEX_FILE.exists())
-
-
-
-if not INDEX_FILE.exists():
-
-    raise RuntimeError(f"index.html not found at {INDEX_FILE}")
-
-
-
-# Small on-disk store for admin-configurable settings
+ROOT = Path(__file__).resolve().parent
 
 DATA_DIR = ROOT / "data"
 
 DATA_DIR.mkdir(exist_ok=True)
 
-CONFIG_PATH = DATA_DIR / "config.json"
-
-SIGNUPS_PATH = DATA_DIR / "signups.json"   # stub store for demo
+CONFIG_FILE = DATA_DIR / "config.json"
 
 
 
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG = {
 
-    "signup_bonus_axo": 1000,
+    "signup_bonus": 1000,
 
-    "referral_bonus_axo": 300,
+    "referral_bonus": 300,
 
-    "banner": "",
+    "require_trustline": True,
 
-    "maintenance": False,
-
-    "last_updated": int(time.time())
+    "banner": ""
 
 }
 
 
 
-def load_json(path: pathlib.Path, default: Any) -> Any:
+def load_config() -> Dict[str, Any]:
 
-    try:
+    if CONFIG_FILE.exists():
 
-        if path.exists():
+        try:
 
-            with path.open("r", encoding="utf-8") as f:
+            with CONFIG_FILE.open("r", encoding="utf-8") as f:
 
-                return json.load(f)
+                cfg = json.load(f)
 
-    except Exception:
+                return {**DEFAULT_CONFIG, **cfg}
 
-        pass
+        except Exception:
 
-    return default
+            pass
 
+    save_config(DEFAULT_CONFIG)
 
-
-def save_json(path: pathlib.Path, data: Any) -> None:
-
-    tmp = path.with_suffix(".json.tmp")
-
-    with tmp.open("w", encoding="utf-8") as f:
-
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-    tmp.replace(path)
+    return DEFAULT_CONFIG.copy()
 
 
 
-def get_config() -> Dict[str, Any]:
+def save_config(cfg: Dict[str, Any]) -> None:
 
-    cfg = load_json(CONFIG_PATH, DEFAULT_CONFIG.copy())
+    with CONFIG_FILE.open("w", encoding="utf-8") as f:
 
-    # ensure all keys
-
-    changed = False
-
-    for k, v in DEFAULT_CONFIG.items():
-
-        if k not in cfg:
-
-            cfg[k] = v
-
-            changed = True
-
-    if changed:
-
-        cfg["last_updated"] = int(time.time())
-
-        save_json(CONFIG_PATH, cfg)
-
-    return cfg
+        json.dump(cfg, f, indent=2)
 
 
 
-def update_config(partial: Dict[str, Any]) -> Dict[str, Any]:
-
-    cfg = get_config()
-
-    cfg.update({k: v for k, v in partial.items() if k in DEFAULT_CONFIG})
-
-    cfg["last_updated"] = int(time.time())
-
-    save_json(CONFIG_PATH, cfg)
-
-    return cfg
+CONFIG = load_config()
 
 
 
-# --------------- Static / SPA routes ---------------
+ADMIN_PIN = os.environ.get("ADMIN_PIN", "").strip()
+
+SECRET_KEY = os.environ.get("SECRET_KEY", os.urandom(32).hex())
+
+
+
+app = Flask(
+
+    __name__,
+
+    static_folder=str(ROOT / "dist" / "public"),
+
+    static_url_path="/"
+
+)
+
+app.secret_key = SECRET_KEY
+
+
+
+# ---------- SPA Routes ----------
+
+STATIC_ROOT = app.static_folder  # dist/public
+
+INDEX_FILE = "index.html"
 
 
 
 @app.route("/")
 
-def serve_index():
+def spa_root():
 
-    return send_from_directory(STATIC_ROOT, "index.html")
+    return send_from_directory(STATIC_ROOT, INDEX_FILE)
 
 
 
 @app.route("/assets/<path:filename>")
 
-def serve_assets(filename: str):
+def assets(filename):
 
-    return send_from_directory(STATIC_ROOT / "assets", filename)
+    return send_from_directory(os.path.join(STATIC_ROOT, "assets"), filename)
 
 
 
-# Serve any non-API route as SPA (client routing)
+# catch-all: serve SPA (except API & admin)
 
 @app.errorhandler(404)
 
-def spa_on_404(_):
-
-    # If path looks like an API, return real 404
+def spa_404(_):
 
     path = request.path.lstrip("/")
 
-    if path.startswith("api/"):
+    if path.startswith("api/") or path.startswith("admin"):
 
         return jsonify({"error": "Not found"}), 404
 
-    return send_from_directory(STATIC_ROOT, "index.html")
+    return send_from_directory(STATIC_ROOT, INDEX_FILE)
 
 
 
-@app.route("/<path:anypath>")
+# ---------- Market (demo: XRP live via CoinGecko; AXO static unless you wire price feed) ----------
 
-def spa_catch_all(anypath: str):
-
-    if anypath.startswith("api/"):
-
-        return jsonify({"error": "Not found"}), 404
-
-    return send_from_directory(STATIC_ROOT, "index.html")
+_last_market = {"t": 0, "data": {"axo_usd": 0.01, "xrp_usd": 0.00, "axo_per_xrp": 0.0}}
 
 
 
-# ----------------- Public API: Market -----------------
-
-
-
-def fetch_xrp_usd(timeout=6.0) -> Optional[float]:
-
-    """
-
-    Get XRP price in USD from CoinGecko.
-
-    """
+def fetch_xrp_usd() -> float:
 
     try:
 
@@ -240,39 +154,17 @@ def fetch_xrp_usd(timeout=6.0) -> Optional[float]:
 
             params={"ids": "ripple", "vs_currencies": "usd"},
 
-            timeout=timeout,
-
-            headers={"Accept": "application/json"}
+            timeout=6,
 
         )
 
-        if r.ok:
+        r.raise_for_status()
 
-            data = r.json()
-
-            return float(data.get("ripple", {}).get("usd") or 0.0)
+        return float(r.json().get("ripple", {}).get("usd", 0.0))
 
     except Exception:
 
-        pass
-
-    return None
-
-
-
-def fetch_axo_usd(timeout=6.0) -> Optional[float]:
-
-    """
-
-    AXO price: if you have a live source, put it here.
-
-    For now we use AXO_USD_FALLBACK env (default 0.01).
-
-    This keeps the UI live and the exchange rate correct.
-
-    """
-
-    return float(AXO_USD_FALLBACK or 0.01)
+        return 0.0
 
 
 
@@ -280,409 +172,39 @@ def fetch_axo_usd(timeout=6.0) -> Optional[float]:
 
 def api_market():
 
-    """
+    # simple 30s cache to keep free tier happy
 
-    Returns { axo_usd, xrp_usd, axo_per_xrp, source, t, cached_seconds }
+    now = time.time()
 
-    """
+    if now - _last_market["t"] > 30:
 
-    t = int(time.time())
+        xrp = fetch_xrp_usd()
 
-    axo_usd = fetch_axo_usd()
+        axo = float(_last_market["data"]["axo_usd"])  # keep demo static or replace with your oracle
 
-    xrp_usd = fetch_xrp_usd() or 0.0
+        axo_per_xrp = round((xrp / axo), 3) if axo > 0 and xrp > 0 else 0.0
 
-    axo_per_xrp = (xrp_usd / axo_usd) if (axo_usd and xrp_usd) else 0.0
+        _last_market["t"] = now
 
+        _last_market["data"] = {
 
+            "axo_usd": axo,
 
-    return jsonify({
+            "xrp_usd": xrp,
 
-        "axo_usd": round(axo_usd, 6),
+            "axo_per_xrp": axo_per_xrp,
 
-        "xrp_usd": round(xrp_usd, 6),
+        }
 
-        "axo_per_xrp": round(axo_per_xrp, 6),
-
-        "source": "coingecko+x_fallback",
-
-        "cached_seconds": 0,
-
-        "t": t
-
-    })
+    return jsonify({**_last_market["data"], "source": "coingecko", "ts": int(_last_market["t"])})
 
 
 
-# --------------- Admin Auth Helpers -------------------
-
-
+# ---------- Admin helpers ----------
 
 def is_admin() -> bool:
 
-    return bool(session.get("admin_ok") is True)
-
-
-
-def require_admin():
-
-    if not is_admin():
-
-        return jsonify({"error": "admin_auth_required"}), 401
-
-
-
-# --------------- Admin Web (PIN Lock) -----------------
-
-
-
-ADMIN_PAGE_HTML = """
-
-<!doctype html>
-
-<html lang="en">
-
-<head>
-
-<meta charset="utf-8" />
-
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-
-<title>AXO Admin</title>
-
-<style>
-
-  :root { --bg:#0b0f14; --card:#141a22; --txt:#e9eef5; --mut:#93a1b2; --accent:#2d7df6; --bad:#e34f4f; --good:#19c37d; }
-
-  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji', 'Segoe UI Symbol';}
-
-  a{color:var(--accent);text-decoration:none}
-
-  .wrap{max-width:960px;margin:40px auto;padding:0 16px;}
-
-  .card{background:var(--card);border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-
-  h1{font-size:28px;margin:12px 0 4px}
-
-  h2{font-size:20px;margin:6px 0 12px;color:var(--mut)}
-
-  label{display:block;font-size:14px;color:var(--mut);margin:8px 0 4px}
-
-  input,button,textarea,select{font-size:15px;padding:10px 12px;border-radius:10px;border:1px solid #2a3340;background:#0f141a;color:var(--txt);outline:none}
-
-  button{background:var(--accent);border:none;color:#fff;cursor:pointer}
-
-  button.secondary{background:#273142}
-
-  .row{display:flex;gap:12px;flex-wrap:wrap}
-
-  .row > *{flex:1 1 220px}
-
-  .mut{color:var(--mut)}
-
-  .ok{color:var(--good)} .bad{color:var(--bad)}
-
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-
-  .footer{margin-top:10px;font-size:12px;color:var(--mut)}
-
-  .lock{max-width:460px;margin:80px auto;text-align:center}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="wrap" id="app">
-
-  <!-- Filled by JS -->
-
-</div>
-
-
-
-<script>
-
-async function postJSON(url, body) {
-
-  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
-
-  if (!r.ok) { throw new Error('HTTP '+r.status); }
-
-  return await r.json().catch(()=> ({}));
-
-}
-
-async function getJSON(url) {
-
-  const r = await fetch(url, {headers:{'Accept':'application/json'}});
-
-  if (!r.ok) { throw new Error('HTTP '+r.status); }
-
-  return await r.json();
-
-}
-
-
-
-async function render() {
-
-  const root = document.getElementById('app');
-
-  // Check login state
-
-  const me = await getJSON('/api/admin/me').catch(()=>({admin:false}));
-
-  if (!me.admin) {
-
-    root.innerHTML = `
-
-      <div class="lock card">
-
-        <h1>Admin Login</h1>
-
-        <p class="mut">Enter your PIN to access the AXO admin.</p>
-
-        <div class="row">
-
-          <input id="pin" type="password" placeholder="Admin PIN" />
-
-          <button id="btnLogin">Unlock</button>
-
-        </div>
-
-      </div>`;
-
-    document.getElementById('btnLogin').onclick = async () => {
-
-      const pin = document.getElementById('pin').value.trim();
-
-      try {
-
-        const res = await postJSON('/api/admin/login', {pin});
-
-        if (res.ok) location.reload();
-
-      } catch(e) { alert('Login failed.'); }
-
-    };
-
-    return;
-
-  }
-
-
-
-  // Load config
-
-  const cfg = await getJSON('/api/admin/config');
-
-
-
-  root.innerHTML = `
-
-    <div class="card">
-
-      <h1>AXO Admin</h1>
-
-      <div class="mut">Welcome. Use the controls below. <button class="secondary" id="btnLogout">Log out</button></div>
-
-    </div>
-
-
-
-    <div class="card">
-
-      <h2>Bonuses</h2>
-
-      <div class="row">
-
-        <div><label>Signup Bonus (AXO)</label><input id="signup_bonus" type="number" value="${cfg.signup_bonus_axo}" /></div>
-
-        <div><label>Referral Bonus (AXO)</label><input id="ref_bonus" type="number" value="${cfg.referral_bonus_axo}" /></div>
-
-      </div>
-
-      <div style="margin-top:10px"><button id="saveBonuses">Save Bonuses</button></div>
-
-    </div>
-
-
-
-    <div class="card">
-
-      <h2>Banner / Maintenance</h2>
-
-      <label>Banner message (optional)</label>
-
-      <textarea id="banner" rows="2" placeholder="Short banner shown on the site...">${cfg.banner||''}</textarea>
-
-      <div class="row" style="margin-top:8px">
-
-        <div><label><input id="maint" type="checkbox" ${cfg.maintenance ? 'checked':''}/> Maintenance mode</label></div>
-
-        <div><button id="saveSite">Save Site Settings</button></div>
-
-      </div>
-
-      <div class="footer">Last updated: ${new Date((cfg.last_updated||0)*1000).toLocaleString()}</div>
-
-    </div>
-
-
-
-    <div class="card">
-
-      <h2>Utilities</h2>
-
-      <div class="grid">
-
-        <button id="btnCache">Rebuild market cache</button>
-
-        <button id="btnExport">Export signups (CSV)</button>
-
-        <button id="btnAward">Manual award (stub)</button>
-
-      </div>
-
-    </div>
-
-  `;
-
-
-
-  document.getElementById('btnLogout').onclick = async () => {
-
-    await postJSON('/api/admin/logout', {});
-
-    location.href = '/';
-
-  };
-
-
-
-  document.getElementById('saveBonuses').onclick = async () => {
-
-    const signup = +document.getElementById('signup_bonus').value || 0;
-
-    const ref = +document.getElementById('ref_bonus').value || 0;
-
-    await postJSON('/api/admin/config', {signup_bonus_axo: signup, referral_bonus_axo: ref});
-
-    alert('Saved.');
-
-  };
-
-  document.getElementById('saveSite').onclick = async () => {
-
-    const banner = document.getElementById('banner').value;
-
-    const maint = document.getElementById('maint').checked;
-
-    await postJSON('/api/admin/config', {banner, maintenance: maint});
-
-    alert('Saved.');
-
-  };
-
-
-
-  document.getElementById('btnCache').onclick = async () => {
-
-    await getJSON('/api/admin/rebuild-cache').catch(()=>{});
-
-    alert('Cache refresh requested.');
-
-  };
-
-
-
-  document.getElementById('btnExport').onclick = async () => {
-
-    window.location.href = '/api/admin/export-signups';
-
-  };
-
-
-
-  document.getElementById('btnAward').onclick = async () => {
-
-    const addr = prompt('Enter XRPL Address to award (stub demo):');
-
-    const amt  = prompt('AXO amount:','100');
-
-    if (addr && amt) {
-
-      const res = await postJSON('/api/admin/award', {address: addr, axo: +amt});
-
-      alert(res.ok ? 'Recorded (stub).' : 'Failed.');
-
-    }
-
-  };
-
-}
-
-
-
-render();
-
-</script>
-
-</body>
-
-</html>
-
-"""
-
-
-
-def admin_required_json(fn):
-
-    """
-
-    Decorator for simple admin JSON routes.
-
-    """
-
-    from functools import wraps
-
-    @wraps(fn)
-
-    def _wrap(*args, **kwargs):
-
-        if not is_admin():
-
-            return jsonify({"error":"admin_auth_required"}), 401
-
-        return fn(*args, **kwargs)
-
-    return _wrap
-
-
-
-@app.route("/admin", methods=["GET"])
-
-def admin_page():
-
-    """
-
-    Serves the admin login screen or the dashboard after PIN.
-
-    """
-
-    # The page itself decides (via /api/admin/me) whether you're logged in.
-
-    resp = make_response(ADMIN_PAGE_HTML)
-
-    resp.headers["Content-Type"] = "text/html; charset=utf-8"
-
-    return resp
-
-
-
-# ---- Admin JSON endpoints ----
+    return bool(session.get("is_admin") is True)
 
 
 
@@ -698,21 +220,21 @@ def admin_me():
 
 def admin_login():
 
-    data = request.get_json(force=True, silent=True) or {}
-
-    pin = (data.get("pin") or "").strip()
-
     if not ADMIN_PIN:
 
-        return jsonify({"error":"admin_pin_not_set_in_env"}), 500
+        return jsonify({"ok": False, "error": "ADMIN_PIN not set on server"}), 403
 
-    if pin == ADMIN_PIN:
+    data = request.get_json(silent=True) or {}
 
-        session["admin_ok"] = True
+    pin = str(data.get("pin", "")).strip()
+
+    if pin and pin == ADMIN_PIN:
+
+        session["is_admin"] = True
 
         return jsonify({"ok": True})
 
-    return jsonify({"ok": False}), 401
+    return jsonify({"ok": False, "error": "Invalid PIN"}), 401
 
 
 
@@ -720,138 +242,156 @@ def admin_login():
 
 def admin_logout():
 
-    session.pop("admin_ok", None)
+    session.clear()
 
     return jsonify({"ok": True})
 
 
 
-@app.route("/api/admin/config", methods=["GET"])
+def require_admin():
 
-@admin_required_json
+    if not is_admin():
 
-def admin_get_config():
-
-    return jsonify(get_config())
+        abort(401)
 
 
 
-@app.route("/api/admin/config", methods=["POST"])
+@app.route("/admin")
 
-@admin_required_json
+def admin_page():
 
-def admin_set_config():
+    # Render a template (PIN handled client-side via /api/admin/me)
 
-    data = request.get_json(force=True, silent=True) or {}
-
-    allowed = {k: v for k, v in data.items() if k in DEFAULT_CONFIG}
-
-    cfg = update_config(allowed)
-
-    return jsonify(cfg)
+    return render_template("admin.html")
 
 
 
-@app.route("/api/admin/rebuild-cache")
+# ---------- Admin: Config ----------
 
-@admin_required_json
+@app.route("/api/admin/config", methods=["GET", "POST"])
 
-def admin_rebuild_cache():
+def admin_config():
 
-    # This endpoint doesn't keep a cache yet, but it's here for parity.
+    if request.method == "GET":
 
-    # You could expand to prefetch market data or clear any in-memory caches.
+        return jsonify(CONFIG)
 
-    return jsonify({"ok": True, "ts": int(time.time())})
+    # POST
 
+    require_admin()
 
+    data = request.get_json(silent=True) or {}
 
-@app.route("/api/admin/export-signups")
+    new_cfg = CONFIG.copy()
 
-@admin_required_json
+    if "signup_bonus" in data:       new_cfg["signup_bonus"] = int(data["signup_bonus"])
 
-def admin_export_signups():
+    if "referral_bonus" in data:     new_cfg["referral_bonus"] = int(data["referral_bonus"])
 
-    rows = load_json(SIGNUPS_PATH, [])
+    if "require_trustline" in data:  new_cfg["require_trustline"] = bool(data["require_trustline"])
 
-    # Build CSV inline
+    if "banner" in data:             new_cfg["banner"] = str(data["banner"])
 
-    import io, csv
+    save_config(new_cfg)
 
-    buf = io.StringIO()
+    CONFIG.update(new_cfg)
 
-    w = csv.writer(buf)
-
-    w.writerow(["ts","email","address","referral"])
-
-    for r in rows:
-
-        w.writerow([r.get("ts",""), r.get("email",""), r.get("address",""), r.get("referral","")])
-
-    out = make_response(buf.getvalue())
-
-    out.headers["Content-Type"] = "text/csv; charset=utf-8"
-
-    out.headers["Content-Disposition"] = "attachment; filename=signups.csv"
-
-    return out
+    return jsonify({"ok": True, "config": CONFIG})
 
 
 
-@app.route("/api/admin/award", methods=["POST"])
+# ---------- Admin: CSV export (stub demo data) ----------
 
-@admin_required_json
+@app.route("/api/admin/export")
 
-def admin_award_stub():
+def admin_export():
 
-    """
+    require_admin()
 
-    Stub for manual awards. Records intent only.
+    # Replace this with your real datastore
 
-    In a future pass, wire to your XRPL sender using WALLET_SEED.
+    rows = [
 
-    """
+        {"timestamp": int(time.time())-3600, "xrpl": "rEXAMPLE1", "ref": "", "awarded": False},
 
-    data = request.get_json(force=True, silent=True) or {}
+        {"timestamp": int(time.time())-120, "xrpl": "rEXAMPLE2", "ref": "rREFERRER", "awarded": True},
 
-    address = (data.get("address") or "").strip()
+    ]
 
-    axo = float(data.get("axo") or 0)
+    out = io.StringIO()
 
-    if not address or axo <= 0:
+    w = csv.DictWriter(out, fieldnames=["timestamp", "xrpl", "ref", "awarded"])
 
-        return jsonify({"ok": False, "error": "invalid_params"}), 400
+    w.writeheader()
 
-    log = load_json(DATA_DIR / "awards.json", [])
+    for r in rows: w.writerow(r)
 
-    log.append({"ts": int(time.time()), "address": address, "axo": axo, "by": "admin"})
+    resp = make_response(out.getvalue())
 
-    save_json(DATA_DIR / "awards.json", log)
+    resp.headers["Content-Type"] = "text/csv"
+
+    resp.headers["Content-Disposition"] = 'attachment; filename="signups.csv"'
+
+    return resp
+
+
+
+# ---------- Admin: Cache refresh (no-op for demo) ----------
+
+@app.route("/api/admin/rebuild-cache", methods=["POST"])
+
+def rebuild_cache():
+
+    require_admin()
+
+    # Put any warming tasks you need here
+
+    def _warm():
+
+        try: fetch_xrp_usd()
+
+        except Exception: pass
+
+    threading.Thread(target=_warm, daemon=True).start()
 
     return jsonify({"ok": True})
 
 
 
-# --------- (Optional) Public signup endpoint (stub) ---------
-
-# If your index.html later POSTs to record signups, this will keep a local ledger.
+# ---------- API examples for UI buttons (stubs) ----------
 
 @app.route("/api/signup", methods=["POST"])
 
 def api_signup():
 
-    data = request.get_json(force=True, silent=True) or {}
+    # Validate and store signup (stub)
 
-    email = (data.get("email") or "").strip()
+    body = request.get_json(silent=True) or {}
 
-    address = (data.get("address") or "").strip()
+    # TODO: verify XRPL address & referral, gate trustline, etc.
 
-    referral = (data.get("referral") or "").strip()
+    return jsonify({"ok": True, "message": "Signup recorded (demo).", "config": CONFIG})
 
-    rows = load_json(SIGNUPS_PATH, [])
 
-    rows.append({"ts": int(time.time()), "email": email, "address": address, "referral": referral})
 
-    save_json(SIGNUPS_PATH, rows)
+@app.route("/api/claim-bonus", methods=["POST"])
 
-    return jsonify({"ok": True})
+def api_claim():
+
+    # TODO: validate wallet, trustline, pay bonus using your on-ledger service
+
+    return jsonify({"ok": True, "awarded": CONFIG["signup_bonus"]})
+
+
+
+# ---------- Health ----------
+
+@app.route("/api/hello")
+
+def api_hello():
+
+    return jsonify({"message": "Hello from AXO backend"})
+
+
+
+# End of file
