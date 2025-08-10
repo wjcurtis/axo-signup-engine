@@ -1,98 +1,100 @@
-<!doctype html>
+<!DOCTYPE html>
 
 <html lang="en">
 
 <head>
 
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
 
-  <title>AXO Utility Hub — XRPL Signup + Referral Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>AXO Signup & Referral Engine</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css" />
 
   <style>
 
-    :root{
+    body {
 
-      --bg:#0b1220; --card:#121a2a; --text:#e9eefc; --sub:#a9b3c7; --accent:#58a6ff; --ok:#1ec28b; --muted:#5f6b86;
+      background-color: #ffffff;
 
-      --btn:#1f2a44; --btnText:#e9eefc; --ring:rgba(88,166,255,.35);
+      color: #000000;
 
-    }
+      text-align: center;
 
-    *{box-sizing:border-box}
-
-    html,body{height:100%}
-
-    body{
-
-      margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
-
-      color:var(--text); background:linear-gradient(180deg,#0a1020 0,#0e1830 100%) fixed;
+      font-family: Arial, sans-serif;
 
     }
 
-    .wrap{max-width:1080px; margin:40px auto; padding:0 18px}
+    .container {
 
-    header{display:flex; align-items:center; gap:16px; margin-bottom:12px}
+      max-width: 600px;
 
-    .logo{font-size:42px; font-weight:800; letter-spacing:.5px}
+      margin: auto;
 
-    .rocket{font-size:26px; filter:drop-shadow(0 6px 10px rgba(24,160,255,.35))}
-
-    .sub{color:var(--sub); margin:0 0 18px 0}
-
-    .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:18px}
-
-    .card{
-
-      grid-column:span 6; background:var(--card); border:1px solid rgba(255,255,255,.06);
-
-      border-radius:14px; padding:18px; box-shadow:0 6px 28px rgba(0,0,0,.35);
+      padding: 20px;
 
     }
 
-    @media (max-width:880px){ .card{grid-column:span 12} }
+    h1 {
 
-    h2{margin:0 0 10px 0; font-size:18px}
+      color: #007bff;
 
-    .btn{
-
-      display:inline-flex; align-items:center; justify-content:center;
-
-      background:var(--btn); color:var(--btnText); border:1px solid rgba(255,255,255,.08);
-
-      border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer;
-
-      transition:.15s transform ease, .15s box-shadow ease, .15s background ease;
+      font-size: 2.5em;
 
     }
 
-    .btn:hover{transform:translateY(-1px); box-shadow:0 8px 20px var(--ring)}
+    h2 {
 
-    .btn.primary{background:var(--accent); border-color:var(--accent); color:#061226}
+      font-weight: bold;
 
-    .muted{color:var(--muted); font-size:13px; margin-top:6px}
+      margin-bottom: 20px;
 
-    .kvs{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:10px}
+    }
 
-    .kv{background:#0f1524; border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:10px 12px}
+    input, button {
 
-    .kv .label{font-size:12px; color:var(--muted)}
+      width: 100%;
 
-    .kv .value{font-size:18px; margin-top:6px}
+      margin-top: 10px;
 
-    .ok{color:var(--ok)}
+    }
 
-    .bar{height:1px; background:linear-gradient(90deg, transparent, rgba(88,166,255,.6), transparent); margin:14px -18px 10px}
+    .market {
 
-    .topRow{display:flex; gap:10px; flex-wrap:wrap}
+      margin-top: 30px;
 
-    .admin{margin-left:auto}
+      padding: 15px;
 
-    .pill{font-size:12px; padding:6px 9px; border-radius:999px; border:1px solid rgba(255,255,255,.12); color:var(--sub)}
+      border: 1px solid #ccc;
 
-    a{color:var(--accent); text-decoration:none}
+      border-radius: 5px;
+
+      background: #f8f8f8;
+
+    }
+
+    .btn-primary {
+
+      background-color: #007bff;
+
+      color: white;
+
+      border: none;
+
+      padding: 10px;
+
+      font-size: 1.1em;
+
+      cursor: pointer;
+
+    }
+
+    .btn-primary:hover {
+
+      background-color: #0056b3;
+
+    }
 
   </style>
 
@@ -100,115 +102,33 @@
 
 <body>
 
-  <div class="wrap">
+  <div class="container">
 
-    <header>
+    <h1>AXO</h1>
 
-      <div class="logo">AXO</div>
+    <h2>XRPL Signup & Referral Engine</h2>
 
-      <div class="rocket">🚀</div>
-
-      <span class="pill">XRPL Signup + Referral Engine</span>
-
-      <a class="pill admin" href="/admin" aria-label="Admin">Admin</a>
-
-    </header>
+    <p>Sign up today and get <strong>100 AXO</strong> bonus tokens! 🚀🚀</p>
 
 
 
-    <p class="sub">Sign up today and get <strong>1000 AXO</strong> bonus tokens!</p>
+    <form id="signupForm">
+
+      <input type="text" id="wallet" placeholder="Enter your XUMM Wallet Address" required />
+
+      <input type="text" id="referral" placeholder="Referral Code (optional)" />
+
+      <button type="submit" class="btn-primary">Sign Up</button>
+
+    </form>
 
 
 
-    <div class="grid">
+    <div class="market">
 
-      <!-- Wallet connect -->
+      <h3>Live Market Data</h3>
 
-      <section class="card">
-
-        <h2>1. Connect XUMM Wallet</h2>
-
-        <p class="muted">This opens the XUMM mobile app to connect your wallet securely.</p>
-
-        <button class="btn primary" id="btn-xumm">Connect XUMM Wallet</button>
-
-      </section>
-
-
-
-      <!-- Trustline -->
-
-      <section class="card">
-
-        <h2>2. Set AXO Trust Line</h2>
-
-        <p class="muted">Please connect your wallet first to proceed.</p>
-
-        <button class="btn" id="btn-trust" disabled>Set Trust Line</button>
-
-      </section>
-
-
-
-      <!-- Purchase / trade -->
-
-      <section class="card">
-
-        <h2>5. Purchase AXO with XRP</h2>
-
-        <p class="muted">Claim your signup bonus first to proceed.</p>
-
-        <button class="btn" id="btn-buy" disabled>Buy / Trade</button>
-
-      </section>
-
-
-
-      <!-- Live Market -->
-
-      <section class="card" id="live-box">
-
-        <div class="topRow">
-
-          <h2>6. Live Market Prices</h2>
-
-          <span class="pill" id="sourcePill">source: —</span>
-
-        </div>
-
-        <div class="bar"></div>
-
-        <div class="kvs">
-
-          <div class="kv">
-
-            <div class="label">AXO Price (USD)</div>
-
-            <div class="value" id="axo_usd">$0.01</div>
-
-          </div>
-
-          <div class="kv">
-
-            <div class="label">XRP Price (USD)</div>
-
-            <div class="value" id="xrp_usd">$0.00</div>
-
-          </div>
-
-        </div>
-
-        <div class="kv" style="margin-top:10px">
-
-          <div class="label">Exchange Rate</div>
-
-          <div class="value ok" id="rate">1 XRP = 0 AXO</div>
-
-        </div>
-
-        <div class="muted" id="asof"></div>
-
-      </section>
+      <p id="marketData">Loading...</p>
 
     </div>
 
@@ -218,61 +138,57 @@
 
   <script>
 
-    // ——— Wire up disabled demo buttons (can be replaced with real flows later)
+    document.getElementById('signupForm').addEventListener('submit', async function(e) {
 
-    document.getElementById('btn-xumm').onclick = () => alert('XUMM connect flow goes here.');
+      e.preventDefault();
 
-    document.getElementById('btn-trust').onclick = () => alert('Trust line flow goes here.');
+      const wallet = document.getElementById('wallet').value;
 
-    document.getElementById('btn-buy').onclick = () => alert('Buy / Trade flow goes here.');
-
-
-
-    // ——— Live market fetch from your Flask backend
-
-    const $ = id => document.getElementById(id);
-
-    const fmt = n => (typeof n==='number' && isFinite(n)) ? n.toLocaleString(undefined, {maximumFractionDigits: 6}) : '—';
+      const referral = document.getElementById('referral').value;
 
 
 
-    async function refreshMarket(){
+      const res = await fetch('/api/signup', {
 
-      try{
+        method: 'POST',
 
-        const res = await fetch('/api/market?nocache=' + Date.now(), {cache:'no-store'});
+        headers: { 'Content-Type': 'application/json' },
 
-        const j = await res.json();
+        body: JSON.stringify({ wallet, referral })
+
+      });
 
 
 
-        $('axo_usd').textContent = '$' + fmt(j.axo_usd);
+      const data = await res.json();
 
-        $('xrp_usd').textContent = '$' + fmt(j.xrp_usd);
+      alert(data.message);
 
-        $('rate').textContent    = (j.axo_per_xrp ? `1 XRP = ${fmt(j.axo_per_xrp)} AXO` : '—');
+    });
 
-        $('sourcePill').textContent = 'source: ' + (j.source || '—');
 
-        if (j.ts){
 
-          const d = new Date(j.ts * 1000);
+    async function loadMarketData() {
 
-          $('asof').textContent = 'As of ' + d.toLocaleString();
+      try {
 
-        }
+        const res = await fetch('/api/market');
 
-      }catch(e){
+        const data = await res.json();
 
-        console.warn('Market refresh failed', e);
+        document.getElementById('marketData').innerText =
+
+          `Price: ${data.price} | Volume: ${data.volume}`;
+
+      } catch (err) {
+
+        document.getElementById('marketData').innerText = 'Error loading market data';
 
       }
 
     }
 
-    refreshMarket();
-
-    setInterval(refreshMarket, 60_000); // refresh every minute
+    loadMarketData();
 
   </script>
 
