@@ -1,0 +1,235 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8"/>
+
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+  <title>AXO Admin</title>
+
+  <style>
+
+    :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
+
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent) ,var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+
+    .wrap{max-width:900px;margin:4rem auto;padding:2rem}
+
+    .card{background:var(--panel);border-radius:14px;padding:24px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
+
+    h1{margin:0 0 16px;font-size:28px;letter-spacing:.5px}
+
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+    label{display:block;font-size:14px;color:var(--muted);margin:0 0 6px}
+
+    input,select{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
+
+    .row{margin:14px 0}
+
+    .actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
+
+    button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
+
+    button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
+
+    .pin{max-width:420px;margin:80px auto 0}
+
+    .pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
+
+    .hint{color:#94a3b8;font-size:13px;margin-top:6px}
+
+    .ok{color:#10b981}
+
+    .err{color:#f87171}
+
+  </style>
+
+</head>
+
+<body>
+
+  <div class="wrap">
+
+    <div id="pinCard" class="card pin" style="display:none">
+
+      <h2>Enter Admin PIN</h2>
+
+      <div class="row">
+
+        <label for="pin">PIN</label>
+
+        <input id="pin" type="password" placeholder="••••••"/>
+
+      </div>
+
+      <div class="actions">
+
+        <button onclick="login()">Unlock</button>
+
+      </div>
+
+      <div id="pinMsg" class="hint"></div>
+
+    </div>
+
+
+
+    <div id="adminCard" class="card" style="display:none">
+
+      <h1>AXO Admin</h1>
+
+      <div class="grid">
+
+        <div>
+
+          <label>Signup Bonus (AXO)</label>
+
+          <input id="signup_bonus" type="number" min="0" step="1" value="1000"/>
+
+        </div>
+
+        <div>
+
+          <label>Referral Reward (AXO)</label>
+
+          <input id="referral_reward" type="number" min="0" step="1" value="300"/>
+
+        </div>
+
+        <div>
+
+          <label>Gate: Require TrustLine</label>
+
+          <select id="require_trustline">
+
+            <option value="true" selected>true</option>
+
+            <option value="false">false</option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+      <div class="actions">
+
+        <button onclick="location.href='/'">Close</button>
+
+        <button class="primary" onclick="save()">Save</button>
+
+      </div>
+
+      <div id="msg" class="hint"></div>
+
+    </div>
+
+  </div>
+
+
+
+<script>
+
+async function isAuthed(){
+
+  const r = await fetch('/api/admin/config');
+
+  return r.status === 200;
+
+}
+
+
+
+async function show(){
+
+  if (await isAuthed()){
+
+    load();
+
+    document.getElementById('adminCard').style.display='';
+
+  }else{
+
+    document.getElementById('pinCard').style.display='';
+
+  }
+
+}
+
+
+
+async function login(){
+
+  const pin = document.getElementById('pin').value.trim();
+
+  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+
+  const msg = document.getElementById('pinMsg');
+
+  if(r.ok){
+
+    msg.textContent = 'Unlocked.'; msg.className='hint ok';
+
+    location.reload();
+
+  }else{
+
+    msg.textContent = 'Invalid PIN.'; msg.className='hint err';
+
+  }
+
+}
+
+
+
+async function load(){
+
+  const r = await fetch('/api/admin/config');
+
+  if(!r.ok) return;
+
+  const data = (await r.json()).data || {};
+
+  document.getElementById('signup_bonus').value = data.signup_bonus ?? 1000;
+
+  document.getElementById('referral_reward').value = data.referral_reward ?? 300;
+
+  document.getElementById('require_trustline').value = String(data.require_trustline ?? true);
+
+}
+
+
+
+async function save(){
+
+  const body = {
+
+    signup_bonus: Number(document.getElementById('signup_bonus').value || 0),
+
+    referral_reward: Number(document.getElementById('referral_reward').value || 0),
+
+    require_trustline: document.getElementById('require_trustline').value === 'true'
+
+  };
+
+  const r = await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+
+  const el = document.getElementById('msg');
+
+  el.textContent = r.ok ? 'Saved.' : 'Save failed';
+
+  el.className = 'hint ' + (r.ok ? 'ok' : 'err');
+
+}
+
+show();
+
+</script>
+
+</body>
+
+</html>
