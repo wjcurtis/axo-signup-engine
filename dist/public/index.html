@@ -36,13 +36,15 @@
 
     .wrap{ width:min(900px, 92vw); }
 
-    .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
 
     .title{ text-align:center; }
 
-    .title h1{ font-size:44px; letter-spacing:.8px; margin:10px 0 0; }
+    .title h1{ font-size:46px; letter-spacing:.8px; margin:8px 0 0; }
 
-    .title h2{ font-size:20px; font-weight:600; margin:6px 0 2px; color:var(--muted); }
+    .title h2{ font-size:18px; font-weight:600; margin:4px 0 6px; color:var(--muted); }
+
+    .marker{ text-align:center; color:var(--muted); font-size:12px; margin-bottom:8px; }
 
     .btn{ appearance:none; border:0; padding:10px 14px; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; font-weight:700; }
 
@@ -50,7 +52,7 @@
 
     .ghost{ background:transparent; color:var(--text); border:1px solid rgba(125,125,125,.3); }
 
-    .icon{ width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid rgba(125,125,125,.35); cursor:pointer; }
+    .icon{ width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid rgba(125,125,125,.35); cursor:pointer; user-select:none; }
 
     .panel{ background:var(--panel); border-radius:14px; box-shadow:var(--shadow); padding:18px; }
 
@@ -82,15 +84,13 @@
 
   <div class="wrap">
 
-
-
     <div class="topbar">
 
-      <!-- Light/Dark -->
+      <!-- Left: Theme toggle -->
 
       <div class="icon" id="themeToggle" title="Light/Dark">🌗</div>
 
-      <!-- small rocket for admin -->
+      <!-- Right: small rocket to admin -->
 
       <div class="icon" id="rocket" title="Admin">🚀</div>
 
@@ -105,6 +105,8 @@
       <h2>XRPL Signup & Referral Engine</h2>
 
     </div>
+
+    <div class="marker">GODMODE BUILD v3</div>
 
 
 
@@ -218,19 +220,15 @@
 
     </div>
 
-
-
   </div>
 
 
-
-<!-- ====== SCRIPTS ====== -->
 
 <script>
 
 (function(){
 
-  // Theme
+  // Theme toggle
 
   const root = document.documentElement;
 
@@ -248,7 +246,7 @@
 
 
 
-  // Rocket → secure admin (PIN lock handled on /admin)
+  // Rocket → secure admin route (PIN is enforced server-side)
 
   document.getElementById('rocket').onclick = (e)=>{
 
@@ -260,7 +258,7 @@
 
 
 
-  // Banner + button text from server config (if reachable)
+  // Load server banner + bonus text if available
 
   async function loadConfig() {
 
@@ -294,7 +292,7 @@
 
 
 
-  // Market
+  // Market fetch
 
   async function loadMarket(){
 
@@ -324,19 +322,11 @@
 
 
 
-  // Buttons (demo stubs)
+  // Demo button stubs
 
-  document.getElementById('trustBtn').onclick = ()=>{
+  document.getElementById('trustBtn').onclick = ()=> alert('Would open XUMM TrustLine (demo).');
 
-    alert('This would open the XUMM TrustLine link for AXO (demo).');
-
-  };
-
-  document.getElementById('buyBtn').onclick = ()=>{
-
-    alert('This would open the purchase flow with XRP (demo).');
-
-  };
+  document.getElementById('buyBtn').onclick   = ()=> alert('Would open purchase flow (demo).');
 
   document.getElementById('claimBtn').onclick = async ()=>{
 
