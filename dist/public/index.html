@@ -4,99 +4,123 @@
 
 <head>
 
-  <meta charset="utf-8" />
+<meta charset="utf-8"/>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 
-  <title>AXO Utility Hub</title>
+<title>AXO Utility Hub</title>
 
-  <style>
+<style>
 
-    :root{
+  :root{
 
-      --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#94a3b8; --accent:#2563eb; --ok:#16a34a; --warn:#f59e0b; --err:#ef4444; --card:#0b1220;
+    --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#94a3b8; --accent:#2563eb; --card:#0b1220;
 
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --shadow:0 10px 30px rgba(0,0,0,.35);
 
-    }
+  }
 
-    [data-theme="light"]{ --bg:#f8fafc; --panel:#ffffff; --text:#0f172a; --muted:#475569; --card:#ffffff; }
+  [data-theme="light"]{ --bg:#f8fafc; --panel:#ffffff; --text:#0f172a; --muted:#475569; --card:#ffffff; }
 
-    html,body{ height:100%; }
 
-    body{
 
-      margin:0; background:linear-gradient(160deg,var(--bg),#0b1220);
+  html,body{height:100%}
 
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  body{margin:0;background:linear-gradient(160deg,var(--bg),#0b1220);
 
-      color:var(--text); display:flex; align-items:center; justify-content:center;
+       font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;color:var(--text)}
 
-    }
+  .wrap{width:min(900px,92vw); margin:0 auto; padding-top:70px;}
 
-    .wrap{ width:min(900px, 92vw); }
 
-    .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
 
-    .title{ text-align:center; }
+  /* Sticky header so buttons are always visible */
 
-    .title h1{ font-size:46px; letter-spacing:.8px; margin:8px 0 0; }
+  .header{
 
-    .title h2{ font-size:18px; font-weight:600; margin:4px 0 6px; color:var(--muted); }
+    position:fixed; top:0; left:0; right:0; height:56px;
 
-    .marker{ text-align:center; color:var(--muted); font-size:12px; margin-bottom:8px; }
+    display:flex; align-items:center; justify-content:space-between;
 
-    .btn{ appearance:none; border:0; padding:10px 14px; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; font-weight:700; }
+    padding:0 16px; background:rgba(17,24,39,.85); backdrop-filter:saturate(150%) blur(6px);
 
-    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    color:var(--text); z-index:9999; border-bottom:1px solid rgba(255,255,255,.06);
 
-    .ghost{ background:transparent; color:var(--text); border:1px solid rgba(125,125,125,.3); }
+  }
 
-    .icon{ width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid rgba(125,125,125,.35); cursor:pointer; user-select:none; }
+  .h-left,.h-right{display:flex; gap:10px; align-items:center;}
 
-    .panel{ background:var(--panel); border-radius:14px; box-shadow:var(--shadow); padding:18px; }
+  .h-btn{display:inline-flex; align-items:center; gap:8px; font-weight:700; padding:8px 12px;
 
-    .steps{ display:grid; gap:12px; margin-top:16px; }
+         border-radius:12px; border:1px solid rgba(255,255,255,.2); background:transparent; color:var(--text); cursor:pointer}
 
-    .step{ background:var(--card); border-radius:12px; padding:16px; border:1px solid rgba(125,125,125,.15); }
+  .h-btn:hover{background:rgba(255,255,255,.08)}
 
-    .step h3{ margin:0 0 8px; font-size:16px; }
+  .h-rocket{font-size:20px; padding:8px 12px}
 
-    .fields input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(125,125,125,.25); background:transparent; color:var(--text); }
 
-    .market{ margin-top:16px; }
 
-    .row{ display:flex; gap:10px; align-items:center; justify-content:center; }
+  .title{text-align:center; margin-top:4px}
 
-    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .title h1{font-size:46px; margin:8px 0 0}
 
-    .center{ text-align:center; }
+  .title h2{font-size:18px; margin:4px 0 6px; color:var(--muted)}
 
-    small.muted{ color:var(--muted); }
+  .marker{text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px}
 
-    .banner{ margin:10px 0 0; padding:10px; border-radius:8px; background:rgba(245,158,11,.12); color:#fbbf24; display:none; }
 
-  </style>
+
+  .panel{background:var(--panel); border-radius:14px; box-shadow:var(--shadow); padding:18px}
+
+  .steps{display:grid; gap:12px; margin-top:16px}
+
+  .step{background:var(--card); border-radius:12px; padding:16px; border:1px solid rgba(125,125,125,.15)}
+
+  .step h3{margin:0 0 8px; font-size:16px}
+
+  .fields input{width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(125,125,125,.25); background:transparent; color:var(--text)}
+
+  .btn{appearance:none;border:0;padding:10px 14px;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer;font-weight:700}
+
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .ghost{background:transparent;color:var(--text);border:1px solid rgba(125,125,125,.3)}
+
+  .row{display:flex;gap:10px;align-items:center;justify-content:center}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  .center{text-align:center}
+
+  small.muted{color:var(--muted)}
+
+  .banner{margin:10px 0 0;padding:10px;border-radius:8px;background:rgba(245,158,11,.12);color:#fbbf24;display:none}
+
+</style>
 
 </head>
 
 <body>
 
-  <div class="wrap">
+  <div class="header">
 
-    <div class="topbar">
+    <div class="h-left">
 
-      <!-- Left: Theme toggle -->
-
-      <div class="icon" id="themeToggle" title="Light/Dark">🌗</div>
-
-      <!-- Right: small rocket to admin -->
-
-      <div class="icon" id="rocket" title="Admin">🚀</div>
+      <button id="themeToggle" class="h-btn" title="Toggle light/dark">🌗 <span>Theme</span></button>
 
     </div>
 
+    <div class="h-right">
 
+      <button id="rocket" class="h-btn h-rocket" title="Admin">🚀</button>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="wrap">
 
     <div class="title">
 
@@ -192,7 +216,7 @@
 
 
 
-      <div class="market step">
+      <div class="step">
 
         <h3>Live Market Data</h3>
 
@@ -232,9 +256,9 @@
 
   const root = document.documentElement;
 
-  const savedTheme = localStorage.getItem('theme');
+  const saved = localStorage.getItem('theme');
 
-  if (savedTheme) root.setAttribute('data-theme', savedTheme);
+  if (saved) root.setAttribute('data-theme', saved);
 
   document.getElementById('themeToggle').onclick = () => {
 
@@ -246,21 +270,13 @@
 
 
 
-  // Rocket → secure admin route (PIN is enforced server-side)
+  // Rocket → /admin (server will ask for PIN)
 
-  document.getElementById('rocket').onclick = (e)=>{
-
-    e.preventDefault();
-
-    location.href = '/admin';
-
-  };
+  document.getElementById('rocket').onclick = (e)=>{ e.preventDefault(); location.href='/admin'; };
 
 
 
-  // Load server banner + bonus text if available
-
-  async function loadConfig() {
+  async function loadConfig(){
 
     try{
 
@@ -270,17 +286,13 @@
 
       const cfg = await r.json();
 
-      if (cfg.banner) {
+      if (cfg.banner){
 
-        const b = document.getElementById('banner');
-
-        b.textContent = cfg.banner;
-
-        b.style.display = 'block';
+        const b = document.getElementById('banner'); b.textContent = cfg.banner; b.style.display='block';
 
       }
 
-      if (typeof cfg.signup_bonus === 'number') {
+      if (typeof cfg.signup_bonus === 'number'){
 
         document.getElementById('claimBtn').textContent = `Claim ${cfg.signup_bonus} AXO`;
 
@@ -292,37 +304,33 @@
 
 
 
-  // Market fetch
-
   async function loadMarket(){
 
     try{
 
-      const r = await fetch('/api/market', {cache:'no-store'});
+      const r = await fetch('/api/market',{cache:'no-store'});
 
       const m = await r.json();
 
-      const set = (id,val)=> document.getElementById(id).textContent = val;
+      const set=(id,v)=>document.getElementById(id).textContent=v;
 
-      set('axo_usd', (m.axo_usd ?? 0).toFixed(4));
+      set('axo_usd',(m.axo_usd??0).toFixed(4));
 
-      set('xrp_usd', (m.xrp_usd ?? 0).toFixed(4));
+      set('xrp_usd',(m.xrp_usd??0).toFixed(4));
 
-      set('axo_per_xrp', (m.axo_per_xrp ?? 0).toLocaleString());
+      set('axo_per_xrp',(m.axo_per_xrp??0).toLocaleString());
 
-      document.getElementById('mkt_src').textContent = `Source ${m.source||'—'} • ${new Date((m.ts||0)*1000).toLocaleTimeString()}`;
+      document.getElementById('mkt_src').textContent=`Source ${m.source||'—'} • ${new Date((m.ts||0)*1000).toLocaleTimeString()}`;
 
     }catch(e){}
 
   }
 
-  setInterval(loadMarket, 30000);
-
-  loadMarket(); loadConfig();
+  loadConfig(); loadMarket(); setInterval(loadMarket,30000);
 
 
 
-  // Demo button stubs
+  // Demo stubs
 
   document.getElementById('trustBtn').onclick = ()=> alert('Would open XUMM TrustLine (demo).');
 
@@ -330,23 +338,19 @@
 
   document.getElementById('claimBtn').onclick = async ()=>{
 
-    const xrpl = document.getElementById('xrpl').value.trim();
+    const xrpl=document.getElementById('xrpl').value.trim();
 
-    const ref  = document.getElementById('ref').value.trim();
+    const ref =document.getElementById('ref').value.trim();
 
-    if (!xrpl) return alert('Please enter your XRPL r-address.');
+    if(!xrpl) return alert('Please enter your XRPL r-address.');
 
-    const r = await fetch('/api/signup',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({xrpl, ref})});
+    const r = await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({xrpl,ref})});
 
-    const j = await r.json();
+    const j = await r.json(); if(!j.ok) return alert(j.error||'Signup failed.');
 
-    if (!j.ok) return alert(j.error||'Signup failed.');
+    const r2= await fetch('/api/claim-bonus',{method:'POST'}); const j2=await r2.json();
 
-    const r2 = await fetch('/api/claim-bonus',{method:'POST'});
-
-    const j2 = await r2.json();
-
-    alert(j2.ok ? `✅ Claimed ${j2.awarded} AXO (demo).` : 'Claim failed.');
+    alert(j2.ok?`✅ Claimed ${j2.awarded} AXO (demo).`:'Claim failed.');
 
   };
 
