@@ -1,20 +1,12 @@
-# main.py — AXO Utility Hub (Flask + SPA + Admin)
+# main.py — AXO Utility Hub (Flask + SPA + Admin v2)
 
-import os
+import os, json, time, hashlib
 
-import json
-
-import time
-
-import hashlib
-
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from flask import (
 
-    Flask, send_from_directory, jsonify, request, make_response,
-
-    render_template, abort
+    Flask, send_from_directory, jsonify, request, make_response, render_template
 
 )
 
@@ -22,21 +14,15 @@ import requests
 
 
 
-# ------------------ App ------------------
-
 app = Flask(__name__, template_folder="templates")
 
 
 
-# ------------------ Static Frontend (SPA) ------------------
-
-# expects: dist/public/index.html and dist/public/assets/*
+# ---------- Static (SPA) ----------
 
 STATIC_ROOT = os.path.join(os.getcwd(), "dist", "public")
 
 INDEX_FILE = os.path.join(STATIC_ROOT, "index.html")
-
-
 
 print("STATIC_ROOT =", STATIC_ROOT)
 
@@ -64,8 +50,6 @@ def serve_assets(filename: str):
 
 
 
-# SPA catch-all for client routes
-
 @app.errorhandler(404)
 
 def not_found(_):
@@ -86,27 +70,83 @@ def spa_catchall(unused=None):
 
 
 
-# ------------------ Simple in‑memory settings (demo) ------------------
+# ---------- Defaults & Settings ----------
 
-SETTINGS: Dict[str, Any] = {
+def _env_bool(name: str, default: bool) -> bool:
 
-    "signup_bonus": 1000,     # AXO
+    v = os.getenv(name)
 
-    "referral_reward": 300,   # AXO
+    if v is None: return default
 
-    "require_trustline": True
+    return str(v).strip().lower() in ("1","true","yes","on")
 
-}
 
-# Static price for AXO in USD (can override via env)
 
 AXO_PRICE_USD = float(os.getenv("AXO_PRICE_USD", "0.01"))
 
+FEE_XRP       = float(os.getenv("FEE_XRP", "0.25"))
+
+VAULT_ADDR    = os.getenv("XRPL_VAULT_ADDR", "").strip()
 
 
-# ------------------ Market API ------------------
 
-# Returns live XRP price from CoinGecko and static AXO price (0.01)
+# Unified, editable settings (fast in‑memory demo storage)
+
+SETTINGS: Dict[str, Any] = {
+
+    # Incentives
+
+    "signup_bonus":        int(os.getenv("AXO_SIGNUP_BONUS", "1000")),
+
+    "referral_reward":     int(os.getenv("AXO_REFERRAL_REWARD", "300")),
+
+    "require_trustline":   _env_bool("REQUIRE_TRUSTLINE", True),
+
+
+
+    # Buying / pricing
+
+    "axo_price_usd":       AXO_PRICE_USD,      # static AXO price
+
+    "buy_enabled":         _env_bool("BUY_ENABLED", True),
+
+
+
+    # Fees / treasury
+
+    "fee_xrp":             FEE_XRP,            # flat fee charged to user (covers XRPL fee; remainder to vault)
+
+    "vault_addr":          VAULT_ADDR,         # r-addr (XRP never leaves vault)
+
+
+
+    # Abuse controls
+
+    "daily_cap_axo":       int(os.getenv("DAILY_CAP_AXO", "500000")),  # max AXO airdropped per day
+
+    "max_claims_per_wallet": int(os.getenv("MAX_CLAIMS_PER_WALLET", "1")),
+
+    "rate_limit_claims_per_hour": int(os.getenv("CLAIMS_PER_HOUR", "60")),
+
+    "whitelist_addresses": [],  # list of r-... strings; optional
+
+    "blacklist_addresses": [],  # optional
+
+
+
+    # Ops toggles
+
+    "airdrop_paused":      _env_bool("AIRDROP_PAUSED", False),
+
+    "maintenance_mode":    _env_bool("MAINTENANCE_MODE", False),
+
+    "quick_signup_enabled":_env_bool("QUICK_SIGNUP_ENABLED", False),
+
+}
+
+
+
+# ---------- Market API ----------
 
 @app.route("/api/market")
 
@@ -120,15 +160,15 @@ def market():
 
             "https://api.coingecko.com/api/v3/simple/price",
 
-            params={"ids": "ripple", "vs_currencies": "usd"},
+            params={"ids":"ripple","vs_currencies":"usd"},
 
-            timeout=8,
+            timeout=8
 
         )
 
         if r.ok:
 
-            xrp_usd = float(r.json().get("ripple", {}).get("usd", 0) or 0.0)
+            xrp_usd = float(r.json().get("ripple",{}).get("usd",0) or 0.0)
 
     except Exception:
 
@@ -136,87 +176,77 @@ def market():
 
 
 
-    axo_usd = AXO_PRICE_USD
+    axo_usd    = float(SETTINGS.get("axo_price_usd", 0.01) or 0.01)
 
-    # How many AXO per 1 XRP at static AXO=$0.01
-
-    axo_per_xrp = (xrp_usd / axo_usd) if (axo_usd > 0) else 0.0
-
-
+    axo_per_xrp= (xrp_usd/axo_usd) if axo_usd>0 else 0.0
 
     return jsonify({
 
-        "axo_usd": round(axo_usd, 6),
+        "axo_usd": round(axo_usd,6),
 
-        "xrp_usd": round(xrp_usd, 6),
+        "xrp_usd": round(xrp_usd,6),
 
-        "axo_per_xrp": round(axo_per_xrp, 6),
+        "axo_per_xrp": round(axo_per_xrp,6),
 
-        "source": "coingecko",
-
-        "ts": int(time.time()),
-
-        "cached_seconds": None
+        "source":"coingecko","ts":int(time.time()),"cached_seconds":None
 
     })
 
 
 
-# ------------------ Admin auth helpers ------------------
+# ---------- Admin auth ----------
 
-ADMIN_PIN = os.getenv("ADMIN_PIN", "").strip()
+ADMIN_PIN = os.getenv("ADMIN_PIN","").strip()
 
 COOKIE_NAME = "axo_admin"
 
 
 
-def _pin_ok(pin: str) -> bool:
+def _pin_ok(pin:str)->bool:
 
-    if not ADMIN_PIN:
-
-        return False
-
-    return pin == ADMIN_PIN
+    return bool(ADMIN_PIN) and pin==ADMIN_PIN
 
 
 
-def _has_admin_cookie(req) -> bool:
+def _has_admin_cookie(req)->bool:
 
-    token = req.cookies.get(COOKIE_NAME, "")
+    token = req.cookies.get(COOKIE_NAME,"")
 
-    if not token or not ADMIN_PIN:
+    if not token or not ADMIN_PIN: return False
 
-        return False
+    expect = hashlib.sha256(("ok:"+ADMIN_PIN).encode()).hexdigest()
 
-    # simple HMAC-ish check
-
-    expect = hashlib.sha256(("ok:" + ADMIN_PIN).encode()).hexdigest()
-
-    return token == expect
+    return token==expect
 
 
 
 def _make_admin_cookie(resp):
 
-    val = hashlib.sha256(("ok:" + ADMIN_PIN).encode()).hexdigest()
+    val = hashlib.sha256(("ok:"+ADMIN_PIN).encode()).hexdigest()
 
-    resp.set_cookie(
+    # session cookie (no max_age) so it disappears on browser close
 
-        COOKIE_NAME, val, httponly=True, secure=True, samesite="Lax", max_age=86400
-
-    )
+    resp.set_cookie(COOKIE_NAME, val, httponly=True, secure=True, samesite="Lax")
 
     return resp
 
 
 
-# ------------------ Admin routes ------------------
+def _clear_admin_cookie(resp):
+
+    resp.delete_cookie(COOKIE_NAME, samesite="Lax")
+
+    return resp
+
+
+
+# ---------- Admin routes ----------
 
 @app.route("/admin")
 
 def admin_page():
 
-    # Always render the template; it will show the PIN prompt if not authed
+    # Always render template; it shows PIN gate if not authed
 
     return render_template("admin.html")
 
@@ -232,11 +262,21 @@ def admin_login():
 
     if not _pin_ok(pin):
 
-        return jsonify({"ok": False, "error": "Invalid PIN"}), 401
+        return jsonify({"ok":False,"error":"Invalid PIN"}), 401
 
-    resp = make_response(jsonify({"ok": True}))
+    resp = make_response(jsonify({"ok":True}))
 
     return _make_admin_cookie(resp)
+
+
+
+@app.post("/api/admin/logout")
+
+def admin_logout():
+
+    resp = make_response(jsonify({"ok":True}))
+
+    return _clear_admin_cookie(resp)
 
 
 
@@ -246,9 +286,9 @@ def admin_get_config():
 
     if not _has_admin_cookie(request):
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        return jsonify({"ok":False,"error":"Unauthorized"}), 401
 
-    return jsonify({"ok": True, "data": SETTINGS})
+    return jsonify({"ok":True,"data":SETTINGS})
 
 
 
@@ -258,32 +298,94 @@ def admin_set_config():
 
     if not _has_admin_cookie(request):
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        return jsonify({"ok":False,"error":"Unauthorized"}), 401
 
     data = request.get_json(silent=True) or {}
 
-    # Only allow known keys
-
-    for k in ("signup_bonus", "referral_reward", "require_trustline"):
-
-        if k in data:
-
-            SETTINGS[k] = data[k]
-
-    return jsonify({"ok": True, "data": SETTINGS})
 
 
+    def _norm_bool(v): 
 
-# ------------------ (Notes for the vault + fee logic) ------------------
+        if isinstance(v,bool): return v
 
-# The .25 XRP fee → you’ll set FEE_XRP=0.25 and XRPL_VAULT_ADDR in Render.
+        return str(v).strip().lower() in ("1","true","yes","on")
 
-# Business rules (XRP stays in vault, AXO payouts only) will be enforced in
+    def _norm_float(v, d=0.0):
 
-# future endpoints (/api/claim, /api/purchase, etc.). This demo keeps UI/Admin
+        try: return float(v)
 
-# working while we wire those secure flows next.
+        except: return d
+
+    def _norm_int(v, d=0):
+
+        try: return int(v)
+
+        except: return d
+
+    def _norm_list_csv(v) -> List[str]:
+
+        if not v: return []
+
+        if isinstance(v, list): return [s.strip() for s in v if s]
+
+        return [s.strip() for s in str(v).split(",") if s.strip()]
 
 
 
-# ------------------ End ------------------
+    # Accept & normalize known fields
+
+    allowed = {
+
+        "signup_bonus":       ("int", "signup_bonus"),
+
+        "referral_reward":    ("int", "referral_reward"),
+
+        "require_trustline":  ("bool","require_trustline"),
+
+        "axo_price_usd":      ("float","axo_price_usd"),
+
+        "buy_enabled":        ("bool","buy_enabled"),
+
+        "fee_xrp":            ("float","fee_xrp"),
+
+        "vault_addr":         ("str", "vault_addr"),
+
+        "daily_cap_axo":      ("int", "daily_cap_axo"),
+
+        "max_claims_per_wallet": ("int","max_claims_per_wallet"),
+
+        "rate_limit_claims_per_hour": ("int","rate_limit_claims_per_hour"),
+
+        "whitelist_addresses":("list","whitelist_addresses"),
+
+        "blacklist_addresses":("list","blacklist_addresses"),
+
+        "airdrop_paused":     ("bool","airdrop_paused"),
+
+        "maintenance_mode":   ("bool","maintenance_mode"),
+
+        "quick_signup_enabled":("bool","quick_signup_enabled"),
+
+    }
+
+    for key, (kind, dest) in allowed.items():
+
+        if key not in data: 
+
+            continue
+
+        v = data[key]
+
+        if kind=="bool":   SETTINGS[dest] = _norm_bool(v)
+
+        elif kind=="int":  SETTINGS[dest] = _norm_int(v, SETTINGS[dest])
+
+        elif kind=="float":SETTINGS[dest] = _norm_float(v, SETTINGS[dest])
+
+        elif kind=="list": SETTINGS[dest] = _norm_list_csv(v)
+
+        else:              SETTINGS[dest] = str(v)
+
+
+
+    return jsonify({"ok":True,"data":SETTINGS})
