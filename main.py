@@ -1,56 +1,88 @@
-# main.py — AXO Utility Hub (final admin + core flows)
+# main.py — AXO Utility Hub (Flask + SPA + Admin)
 
-import os, time, json, hashlib, math, threading
 
-from typing import Any, Dict, Set, Tuple
 
-from flask import Flask, jsonify, request, send_from_directory, render_template, make_response
+import os
+
+import json
+
+import time
+
+import threading
+
+from typing import Any, Dict, Set
+
+
 
 import requests
 
+from flask import (
 
+    Flask,
 
-# Optional XRPL (real sends only if XRPL_ENABLE_REAL=true)
+    jsonify,
 
-XRPL_ENABLE_REAL = os.getenv("XRPL_ENABLE_REAL", "false").strip().lower() in ("1","true","yes","on")
+    request,
 
-try:
+    send_from_directory,
 
-    if XRPL_ENABLE_REAL:
+    render_template,
 
-        from xrpl.clients import JsonRpcClient
+    session,
 
-        from xrpl.wallet import Wallet
+    make_response,
 
-        from xrpl.models.transactions import Payment
-
-        from xrpl.transaction import safe_sign_and_autofill_transaction, send_reliable_submission
-
-        from xrpl.models.amounts import IssuedCurrencyAmount
-
-        from xrpl.models.requests import AccountInfo
-
-        from xrpl.utils import xrp_to_drops
-
-except Exception:
-
-    XRPL_ENABLE_REAL = False  # fallback to demo mode if lib not available
+)
 
 
 
-app = Flask(__name__, template_folder="templates")
+# ------------------ App & Config ------------------
+
+app = Flask(__name__)
 
 
 
-# ---------------- Static SPA ----------------
+# Use a strong secret key in production (set RENDER/ENV: FLASK_SECRET_KEY)
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.urandom(32))
+
+app.config.update(
+
+    SESSION_COOKIE_SAMESITE="Lax",
+
+    SESSION_COOKIE_SECURE=True,
+
+)
+
+
+
+# Admin PIN (set in Render → Environment → ADMIN_PIN)
+
+ADMIN_PIN = os.environ.get("ADMIN_PIN", "0000")
+
+
+
+# Optional vault/wallet envs (placeholders for future on-ledger ops)
+
+VAULT_WALLET = os.environ.get("VAULT_WALLET", "")       # r...
+
+WALLET_SEED  = os.environ.get("WALLET_SEED", "")        # keep in env only!
+
+
+
+# ------------------ Frontend (Static SPA) ------------------
+
+# expects: dist/public/index.html and dist/public/assets/*
 
 STATIC_ROOT = os.path.join(os.getcwd(), "dist", "public")
 
 INDEX_FILE = os.path.join(STATIC_ROOT, "index.html")
 
+
+
 print("STATIC_ROOT =", STATIC_ROOT)
 
-print("INDEX_FILE =", INDEX_FILE, "exists?", os.path.exists(INDEX_FILE))
+print("INDEX_FILE exists? ", os.path.exists(INDEX_FILE))
 
 if not os.path.exists(INDEX_FILE):
 
@@ -60,7 +92,7 @@ if not os.path.exists(INDEX_FILE):
 
 @app.route("/")
 
-def index():
+def serve_index():
 
     return send_from_directory(STATIC_ROOT, "index.html")
 
@@ -68,103 +100,235 @@ def index():
 
 @app.route("/assets/<path:filename>")
 
-def assets(filename):
+def serve_assets(filename: str):
 
     return send_from_directory(os.path.join(STATIC_ROOT, "assets"), filename)
 
 
 
-@app.errorhandler(404)
+# ------------------ Demo In‑Memory State ------------------
 
-def spa_404(_):
+# (Free Render instances don’t have durable storage. These values reset on redeploy.)
 
-    return send_from_directory(STATIC_ROOT, "index.html")
+DEFAULTS = {
 
+    "signup_bonus": 1000,       # AXO
 
+    "referral_bonus": 300,      # AXO
 
-@app.route("/<path:unused>")
+    "require_trustline": True,
 
-def spa_catch(unused=None):
+    "axo_usd": 0.01,            # static AXO price (admin can change)
 
-    if unused and unused.startswith("api/"):
+    "flat_fee_xrp": 0.25,       # covers network fee; remainder to vault
 
-        return jsonify({"error": "API endpoint not found"}), 404
-
-    return send_from_directory(STATIC_ROOT, "index.html")
-
-
-
-# ---------------- Config / Settings ----------------
-
-def _env_float(name: str, default: float) -> float:
-
-    try: return float(os.getenv(name, str(default)))
-
-    except: return default
-
-
-
-ADMIN_PIN = os.getenv("ADMIN_PIN", "").strip()
-
-VAULT_ADDR = os.getenv("XRPL_VAULT_ADDR", "").strip()       # r-... (XRP never leaves vault)
-
-AXO_PRICE_USD = _env_float("AXO_PRICE_USD", 0.01)            # static price, editable in Admin
-
-FEE_XRP = _env_float("FEE_XRP", 0.25)                        # flat fee; XRPL fee comes first; remainder → vault
-
-
-
-# XRPL network config (only used if XRPL_ENABLE_REAL=true)
-
-XRPL_NETWORK = os.getenv("XRPL_NETWORK", "mainnet").lower()  # mainnet|testnet
-
-XRPL_RPC = "https://s1.ripple.com:51234" if XRPL_NETWORK=="mainnet" else "https://s.altnet.rippletest.net:51234"
-
-XRPL_SEED = os.getenv("XRPL_SEED", "").strip()               # vault signer seed (careful!)
-
-AXO_ISSUER = os.getenv("AXO_ISSUER", "").strip()             # issuer r-...
-
-AXO_CODE = os.getenv("AXO_CURRENCY_CODE", "AXO").strip()     # typically "AXO"
-
-
-
-SETTINGS: Dict[str, Any] = {
-
-    "signup_bonus": 1000,
-
-    "referral_reward": 300,
-
-    "axo_price_usd": AXO_PRICE_USD,
-
-    "fee_xrp": FEE_XRP,
-
-    "vault_addr": VAULT_ADDR,
+    "throttle_per_hr": 3,       # abuse throttle (basic)
 
 }
 
+STATE_LOCK = threading.Lock()
 
+SETTINGS: Dict[str, Any] = dict(DEFAULTS)
 
-# runtime tables (simple in-memory demo storage)
+BLOCKED: Set[str] = set()
 
-CLAIMED: Set[str] = set()          # wallets that already got the one-time signup bonus
-
-BLACKLIST: Set[str] = set()        # banned wallets (no payouts)
-
-REF_COUNTS: Dict[str, int] = {}    # referrer => count of rewarded referrals
-
-RATE_WINDOW: Dict[str, list] = {}  # ip/wallet => timestamps (for basic rate-limiting)
-
-LOCK = threading.Lock()
+ISSUED_WALLETS: Set[str] = set()    # each wallet can only claim signup bonus once
 
 
 
-# ---------------- Market API ----------------
+def admin_required() -> bool:
 
-@app.get("/api/market")
+    return bool(session.get("is_admin"))
 
-def api_market():
 
-    xrp_usd = 0.0
+
+# ------------------ Admin Views ------------------
+
+@app.route("/admin")
+
+def admin_page():
+
+    """
+
+    Serves the admin UI. If not authed, shows PIN gate (handled by template JS via /api/admin/login).
+
+    """
+
+    return render_template("admin.html")
+
+
+
+# ------------------ Admin API ------------------
+
+@app.post("/api/admin/login")
+
+def admin_login():
+
+    data = request.get_json(silent=True) or {}
+
+    pin = str(data.get("pin", "")).strip()
+
+    if pin == ADMIN_PIN:
+
+        session["is_admin"] = True
+
+        # short admin session
+
+        session.permanent = False
+
+        return jsonify({"ok": True})
+
+    return jsonify({"ok": False, "error": "Invalid PIN"}), 401
+
+
+
+@app.post("/api/admin/logout")
+
+def admin_logout():
+
+    # Explicit logout for the modal "Close" and "Save" actions
+
+    session.pop("is_admin", None)
+
+    return jsonify({"ok": True})
+
+
+
+@app.get("/api/admin/settings")
+
+def admin_get_settings():
+
+    if not admin_required():
+
+        return jsonify({"ok": False, "error": "Auth required"}), 401
+
+    with STATE_LOCK:
+
+        return jsonify({"ok": True, "settings": SETTINGS, "blocked": sorted(BLOCKED)})
+
+
+
+@app.post("/api/admin/settings")
+
+def admin_save_settings():
+
+    if not admin_required():
+
+        return jsonify({"ok": False, "error": "Auth required"}), 401
+
+    data = request.get_json(silent=True) or {}
+
+    with STATE_LOCK:
+
+        # sanitize/assign with defaults if missing
+
+        SETTINGS["signup_bonus"]     = int(data.get("signup_bonus", SETTINGS["signup_bonus"]))
+
+        SETTINGS["referral_bonus"]   = int(data.get("referral_bonus", SETTINGS["referral_bonus"]))
+
+        SETTINGS["require_trustline"]= bool(data.get("require_trustline", SETTINGS["require_trustline"]))
+
+        SETTINGS["axo_usd"]          = float(data.get("axo_usd", SETTINGS["axo_usd"]))
+
+        SETTINGS["flat_fee_xrp"]     = float(data.get("flat_fee_xrp", SETTINGS["flat_fee_xrp"]))
+
+        SETTINGS["throttle_per_hr"]  = int(data.get("throttle_per_hr", SETTINGS["throttle_per_hr"]))
+
+    # IMPORTANT: log out immediately so reopening admin requires PIN again
+
+    session.pop("is_admin", None)
+
+    return jsonify({"ok": True, "settings": SETTINGS})
+
+
+
+@app.post("/api/admin/block")
+
+def admin_block_wallet():
+
+    if not admin_required():
+
+        return jsonify({"ok": False, "error": "Auth required"}), 401
+
+    data = request.get_json(silent=True) or {}
+
+    addr = str(data.get("address", "")).strip()
+
+    if not addr:
+
+        return jsonify({"ok": False, "error": "address required"}), 400
+
+    with STATE_LOCK:
+
+        BLOCKED.add(addr)
+
+    return jsonify({"ok": True, "blocked": sorted(BLOCKED)})
+
+
+
+@app.post("/api/admin/unblock")
+
+def admin_unblock_wallet():
+
+    if not admin_required():
+
+        return jsonify({"ok": False, "error": "Auth required"}), 401
+
+    data = request.get_json(silent=True) or {}
+
+    addr = str(data.get("address", "")).strip()
+
+    with STATE_LOCK:
+
+        BLOCKED.discard(addr)
+
+    return jsonify({"ok": True, "blocked": sorted(BLOCKED)})
+
+
+
+@app.post("/api/admin/send")
+
+def admin_send_axo_stub():
+
+    """
+
+    Placeholder “send AXO” action. In this demo build we only validate inputs.
+
+    Hook XRPL send logic here when you’re ready (server-side signing with VAULT_WALLET/WALLET_SEED).
+
+    """
+
+    if not admin_required():
+
+        return jsonify({"ok": False, "error": "Auth required"}), 401
+
+    data = request.get_json(silent=True) or {}
+
+    to_addr = str(data.get("to", "")).strip()
+
+    amount  = int(data.get("amount", 0))
+
+    if not to_addr or amount <= 0:
+
+        return jsonify({"ok": False, "error": "to & positive amount required"}), 400
+
+    # Return success stub for now.
+
+    return jsonify({"ok": True, "tx": {"to": to_addr, "amount_axo": amount, "note": "stubbed"}})
+
+
+
+# ------------------ Public API ------------------
+
+def fetch_xrp_usd(timeout=4.0) -> float:
+
+    """
+
+    Best-effort XRP/USD via CoinGecko public API (no key). Free instances sometimes fail outbound fetches;
+
+    we fail gracefully (return 0.0) and UI will still show AXO static pricing.
+
+    """
 
     try:
 
@@ -174,244 +338,216 @@ def api_market():
 
             params={"ids": "ripple", "vs_currencies": "usd"},
 
-            timeout=8
+            timeout=timeout,
 
         )
 
-        if r.ok:
+        r.raise_for_status()
 
-            xrp_usd = float(r.json().get("ripple", {}).get("usd", 0) or 0.0)
+        data = r.json()
+
+        return float(data.get("ripple", {}).get("usd", 0.0)) or 0.0
 
     except Exception:
 
-        xrp_usd = 0.0
+        return 0.0
 
-    axo_usd = float(SETTINGS.get("axo_price_usd", 0.01) or 0.01)
 
-    axo_per_xrp = (xrp_usd / axo_usd) if axo_usd > 0 else 0.0
 
-    return jsonify({
+@app.get("/api/market")
 
-        "axo_usd": round(axo_usd, 6),
+def api_market():
 
-        "xrp_usd": round(xrp_usd, 6),
+    with STATE_LOCK:
 
-        "axo_per_xrp": round(axo_per_xrp, 6),
+        axo_usd = float(SETTINGS["axo_usd"])
+
+    xrp_usd = fetch_xrp_usd()
+
+    axo_per_xrp = (xrp_usd / axo_usd) if (axo_usd > 0 and xrp_usd > 0) else 0.0
+
+    payload = {
+
+        "axo_usd": round(axo_usd, 5),
+
+        "xrp_usd": round(xrp_usd, 5),
+
+        "axo_per_xrp": int(axo_per_xrp) if axo_per_xrp else 0,
 
         "source": "coingecko",
 
-        "ts": int(time.time())
+        "ts": int(time.time()),
 
-    })
+    }
 
+    # prevent caching
 
+    resp = make_response(jsonify(payload))
 
-# ---------------- Admin auth helpers ----------------
-
-COOKIE = "axo_admin"
-
-
-
-def _pin_ok(pin: str) -> bool:
-
-    return bool(ADMIN_PIN) and pin == ADMIN_PIN
-
-
-
-def _has_admin_cookie(req) -> bool:
-
-    tok = req.cookies.get(COOKIE, "")
-
-    if not tok or not ADMIN_PIN:
-
-        return False
-
-    expect = hashlib.sha256(("ok:" + ADMIN_PIN).encode()).hexdigest()
-
-    return tok == expect
-
-
-
-def _make_cookie(resp):
-
-    tok = hashlib.sha256(("ok:" + ADMIN_PIN).encode()).hexdigest()
-
-    resp.set_cookie(COOKIE, tok, httponly=True, secure=True, samesite="Lax")
+    resp.headers["Cache-Control"] = "no-store"
 
     return resp
 
 
 
-def _clear_cookie(resp):
+@app.post("/api/signup/prepare")
 
-    resp.delete_cookie(COOKIE, samesite="Lax")
+def api_signup_prepare():
 
-    return resp
+    """
 
+    Step 1: user submits wallet address.
 
+    - Verify formatting (very light here).
 
-# ---------------- Admin pages & APIs ----------------
+    - Enforce blocklist & one-time signup per wallet.
 
-@app.get("/admin")
+    - Reserve the 1000 AXO (demo flag only).
 
-def admin_page():
-
-    return render_template("admin.html")
-
-
-
-@app.post("/api/admin/login")
-
-def admin_login():
+    """
 
     data = request.get_json(silent=True) or {}
 
-    if not _pin_ok((data.get("pin") or "").strip()):
+    addr = (data.get("address") or "").strip()
 
-        return jsonify({"ok": False, "error": "Invalid PIN"}), 401
+    if not addr.startswith("r") or len(addr) < 20:
 
-    return _make_cookie(make_response(jsonify({"ok": True})))
-
-
-
-@app.post("/api/admin/logout")
-
-def admin_logout():
-
-    return _clear_cookie(make_response(jsonify({"ok": True})))
+        return jsonify({"ok": False, "error": "Invalid XRPL address"}), 400
 
 
 
-@app.get("/api/admin/config")
+    with STATE_LOCK:
 
-def admin_get_cfg():
+        if addr in BLOCKED:
 
-    if not _has_admin_cookie(request):
+            return jsonify({"ok": False, "error": "Wallet blocked"}), 403
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        if addr in ISSUED_WALLETS:
 
-    return jsonify({"ok": True, "data": SETTINGS, "blacklist": sorted(BLACKLIST)})
+            return jsonify({"ok": False, "error": "Signup bonus already claimed"}), 409
 
 
 
-@app.post("/api/admin/config")
+    # In a real flow we’d set a server-side “session wallet” reservation.
 
-def admin_set_cfg():
+    session["wallet"] = addr
 
-    if not _has_admin_cookie(request):
+    return jsonify({"ok": True})
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+
+@app.post("/api/signup/claim")
+
+def api_signup_claim():
+
+    """
+
+    Step 3: claim signup bonus (requires trustline step to be done by user).
+
+    - Enforces one-time per wallet.
+
+    - Applies admin-configured amounts.
+
+    - Handles referral payout logic (referrer address passed as 'ref').
+
+    - XRPL payout logic is stubbed; returns a fake tx hash.
+
+    """
 
     data = request.get_json(silent=True) or {}
 
-    with LOCK:
+    addr = (data.get("address") or "").strip()
 
-        if "signup_bonus" in data: SETTINGS["signup_bonus"] = int(data["signup_bonus"])
-
-        if "referral_reward" in data: SETTINGS["referral_reward"] = int(data["referral_reward"])
-
-        if "axo_price_usd" in data: SETTINGS["axo_price_usd"] = float(data["axo_price_usd"])
-
-        if "fee_xrp" in data: SETTINGS["fee_xrp"] = float(data["fee_xrp"])
-
-        if "vault_addr" in data: SETTINGS["vault_addr"] = str(data["vault_addr"]).strip()
-
-    return jsonify({"ok": True, "data": SETTINGS})
+    ref  = (data.get("ref") or "").strip()  # referral XRPL address
 
 
 
-@app.post("/api/admin/blacklist/add")
+    if not addr or not addr.startswith("r"):
 
-def admin_blacklist_add():
-
-    if not _has_admin_cookie(request):
-
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-
-    w = (request.get_json(silent=True) or {}).get("wallet","").strip()
-
-    if not (w and w.startswith("r")):
-
-        return jsonify({"ok": False, "error": "Invalid wallet"}), 400
-
-    with LOCK:
-
-        BLACKLIST.add(w)
-
-    return jsonify({"ok": True, "blacklist": sorted(BLACKLIST)})
+        return jsonify({"ok": False, "error": "address required"}), 400
 
 
 
-@app.post("/api/admin/blacklist/remove")
+    with STATE_LOCK:
 
-def admin_blacklist_remove():
+        if addr in BLOCKED:
 
-    if not _has_admin_cookie(request):
+            return jsonify({"ok": False, "error": "Wallet blocked"}), 403
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        if addr in ISSUED_WALLETS:
 
-    w = (request.get_json(silent=True) or {}).get("wallet","").strip()
-
-    with LOCK:
-
-        BLACKLIST.discard(w)
-
-    return jsonify({"ok": True, "blacklist": sorted(BLACKLIST)})
+            return jsonify({"ok": False, "error": "Signup bonus already claimed"}), 409
 
 
 
-@app.post("/api/admin/transfer")
+        signup_amt   = int(SETTINGS["signup_bonus"])
 
-def admin_transfer():
+        referral_amt = int(SETTINGS["referral_bonus"])
 
-    """Manual admin transfer of AXO from vault to target wallet."""
-
-    if not _has_admin_cookie(request):
-
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-
-    body = request.get_json(silent=True) or {}
-
-    to = (body.get("to") or "").strip()
-
-    amt = float(body.get("amount_axo") or 0)
-
-    if not (to and to.startswith("r")):
-
-        return jsonify({"ok": False, "error": "Invalid r-address"}), 400
-
-    if amt <= 0:
-
-        return jsonify({"ok": False, "error": "Amount must be > 0"}), 400
-
-    if to in BLACKLIST:
-
-        return jsonify({"ok": False, "error": "Wallet is blacklisted"}), 403
+        require_tl   = bool(SETTINGS["require_trustline"])
 
 
 
-    # DEMO: no real XRPL unless enabled
-
-    if not XRPL_ENABLE_REAL:
-
-        # pretend success
-
-        return jsonify({"ok": True, "txid": "demo-admin-transfer", "to": to, "amount_axo": amt, "real": False})
+    # TODO: verify trustline if require_tl (needs XRPL call). For demo we assume OK.
 
 
 
-    # Real XRPL (IssuedCurrencyAmount payment of AXO)
+    # Mark as issued
 
-    try:
+    with STATE_LOCK:
 
-        client = JsonRpcClient(XRPL_RPC)
+        ISSUED_WALLETS.add(addr)
 
-        wallet = Wallet(seed=XRPL_SEED, sequence=0)  # sequence autofilled
 
-        amount = IssuedCurrencyAmount(currency=AXO_CODE, issuer=AXO_ISSUER, value=str(amt))
 
-        tx = Payment(account=wallet.classic_address, destination=to, amount=amount)
+    # TODO: perform on-ledger send from VAULT_WALLET via WALLET_SEED (server-side signing).
 
-        signed = safe_sign_and_autofill_transaction(tx, wallet, client)
+    tx_signup  = {"to": addr, "amount_axo": signup_amt, "hash": "demo_tx_signup"}
 
-        res = send_reliable_submission
+    tx_ref     = None
+
+    if ref and ref.startswith("r") and ref not in BLOCKED and ref != addr and referral_amt > 0:
+
+        tx_ref = {"to": ref, "amount_axo": referral_amt, "hash": "demo_tx_ref"}
+
+
+
+    return jsonify({"ok": True, "tx_signup": tx_signup, "tx_referral": tx_ref})
+
+
+
+# ------------------ SPA catch-all ------------------
+
+@app.errorhandler(404)
+
+def not_found(_):
+
+    return send_from_directory(STATIC_ROOT, "index.html")
+
+
+
+@app.route("/<path:unused>")
+
+def spa_catchall(unused=None):
+
+    if unused and unused.startswith("api/"):
+
+        return jsonify({"error": "API endpoint not found"}), 404
+
+    return send_from_directory(STATIC_ROOT, "index.html")
+
+
+
+# ------------------ Health ------------------
+
+@app.get("/api/hello")
+
+def api_hello():
+
+    return jsonify({"message": "Hello from AXO API"})
+
+
+
+# ------------------ Entrypoint ------------------
+
+# Gunicorn will run "app" via your Procfile or render.yaml (no app.run() here).
