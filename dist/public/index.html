@@ -4,157 +4,235 @@
 
 <head>
 
-  <meta charset="utf-8"/>
+<meta charset="utf-8"/>
 
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-  <title>AXO Admin</title>
+<title>AXO • XRPL Signup & Referral</title>
 
-  <style>
+<style>
 
-    :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
+:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
 
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent) ,var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
-    .wrap{max-width:900px;margin:4rem auto;padding:2rem}
+.head{display:flex;justify-content:space-between;align-items:center;max-width:980px;margin:18px auto 0;padding:0 16px}
 
-    .card{background:var(--panel);border-radius:14px;padding:24px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
+.brand{font-size:28px;font-weight:700;letter-spacing:.4px}
 
-    h1{margin:0 0 16px;font-size:28px;letter-spacing:.5px}
+.sub{font-size:12px;color:#9ca3af;margin-top:4px;text-align:center}
 
-    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.iconbtn{background:#0b1220;border:1px solid #2a334d;border-radius:999px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer}
 
-    label{display:block;font-size:14px;color:var(--muted);margin:0 0 6px}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
 
-    input,select{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
+.card{background:var(--panel);border:1px solid #1f2937;border-radius:14px;padding:18px;box-shadow:0 12px 30px #0007}
 
-    .row{margin:14px 0}
+.step{border:1px dashed #2a334d;border-radius:12px;padding:12px;margin:10px 0}
 
-    .actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
+h3{margin:0 0 8px;font-size:14px}
 
-    button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
+input{width:100%;padding:10px 12px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
 
-    button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
+button{padding:10px 16px;border-radius:10px;border:1px solid #2b50a8;background:linear-gradient(180deg,#3b82f6,#2563eb);color:white;cursor:pointer}
 
-    .pin{max-width:420px;margin:80px auto 0}
+.market{margin-top:14px;padding:14px;border:1px solid #2a334d;border-radius:12px}
 
-    .pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
+.row{display:flex;gap:18px;flex-wrap:wrap}
 
-    .hint{color:#94a3b8;font-size:13px;margin-top:6px}
+.kv{min-width:160px}
 
-    .ok{color:#10b981}
+small{color:#94a3b8}
 
-    .err{color:#f87171}
+.gtag{font-size:11px;color:#9ca3af;margin-top:3px}
 
-  </style>
+.center{text-align:center}
+
+
+
+/* Bottom live XRP bar */
+
+.live-bar{
+
+  position:fixed;
+
+  bottom:0;
+
+  left:0;
+
+  width:100%;
+
+  background:#0b1220;
+
+  color:#e5e7eb;
+
+  border-top:1px solid #2a334d;
+
+  font-size:14px;
+
+  padding:8px 12px;
+
+  display:flex;
+
+  justify-content:center;
+
+  align-items:center;
+
+  gap:20px;
+
+  z-index:9999;
+
+}
+
+</style>
 
 </head>
 
 <body>
 
-  <div class="wrap">
 
-    <div id="pinCard" class="card pin" style="display:none">
 
-      <h2>Enter Admin PIN</h2>
+<div class="head">
 
-      <div class="row">
+  <div class="iconbtn" title="Theme" onclick="toggleTheme()">☀️</div>
 
-        <label for="pin">PIN</label>
+  <div class="center">
 
-        <input id="pin" type="password" placeholder="••••••"/>
+    <div class="brand">AXO</div>
 
-      </div>
+    <div class="sub">XRPL Signup & Referral • GMODE Bv3</div>
 
-      <div class="actions">
+  </div>
 
-        <button onclick="login()">Unlock</button>
+  <a class="iconbtn" href="/admin" title="Admin">🚀</a>
 
-      </div>
+</div>
 
-      <div id="pinMsg" class="hint"></div>
+
+
+<div class="wrap">
+
+  <div class="card">
+
+    <div class="step">
+
+      <h3>1. Connect XUMM Wallet</h3>
+
+      <input id="acct" placeholder="Enter your XRPL r-address (r...)" />
+
+      <div class="gtag">We’ll verify your wallet and prepare your bonus.</div>
 
     </div>
 
 
 
-    <div id="adminCard" class="card" style="display:none">
+    <div class="step">
 
-      <h1>AXO Admin</h1>
+      <h3>2. Set AXO Trust Line</h3>
 
-      <div class="grid">
+      <button>Open in XUMM</button>
 
-        <div>
+      <small>Required before claiming bonus.</small>
 
-          <label>Signup Bonus (AXO)</label>
+    </div>
 
-          <input id="signup_bonus" type="number" min="0" step="1" value="1000"/>
 
-        </div>
 
-        <div>
+    <div class="step">
 
-          <label>Referral Reward (AXO)</label>
+      <h3>3. Claim Signup Bonus</h3>
 
-          <input id="referral_reward" type="number" min="0" step="1" value="300"/>
+      <div class="row" style="align-items:center">
 
-        </div>
+        <input id="ref" placeholder="Referral code (optional = r-address)"/>
 
-        <div>
-
-          <label>Gate: Require TrustLine</label>
-
-          <select id="require_trustline">
-
-            <option value="true" selected>true</option>
-
-            <option value="false">false</option>
-
-          </select>
-
-        </div>
+        <button>Claim 1000 AXO</button>
 
       </div>
 
-      <div class="actions">
+      <small>Referral reward: 300 AXO (auto when referral is valid).</small>
 
-        <button onclick="location.href='/'">Close</button>
+    </div>
 
-        <button class="primary" onclick="save()">Save</button>
+
+
+    <div class="step">
+
+      <h3>4. Purchase AXO with XRP (optional)</h3>
+
+      <button>Open Purchase Flow</button>
+
+    </div>
+
+
+
+    <div class="market">
+
+      <h3>Live Market Data</h3>
+
+      <div class="row">
+
+        <div class="kv">AXO Price (USD): <b id="axoPrice">—</b></div>
+
+        <div class="kv">XRP Price (USD): <b id="xrpPrice">—</b></div>
+
+        <div class="kv">1 XRP = <b id="ratio">—</b> AXO</div>
 
       </div>
 
-      <div id="msg" class="hint"></div>
+      <div class="gtag">Source: <span id="marketSource"></span> • <span id="marketTime"></span></div>
 
     </div>
 
   </div>
 
+</div>
+
+
+
+<!-- Bottom live XRP/AXO price bar -->
+
+<div class="live-bar">
+
+  <div>AXO: <span id="liveAxoPrice">—</span> USD</div>
+
+  <div>XRP: <span id="liveXrpPrice">—</span> USD</div>
+
+  <div>1 XRP = <span id="liveRatio">—</span> AXO</div>
+
+</div>
+
 
 
 <script>
 
-async function isAuthed(){
+(function initTheme(){
 
-  const r = await fetch('/api/admin/config');
+  const saved = localStorage.getItem('theme') || 'dark';
 
-  return r.status === 200;
+  if(saved==='light') document.documentElement.style.setProperty('--bg','#f8fafc'),document.body.style.color='#0f172a';
 
-}
+})();
 
+function toggleTheme(){
 
+  const isDark = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()==='#0f172a';
 
-async function show(){
+  if(isDark){
 
-  if (await isAuthed()){
+    document.documentElement.style.setProperty('--bg','#f8fafc');
 
-    load();
+    document.body.style.color='#0f172a';
 
-    document.getElementById('adminCard').style.display='';
+    localStorage.setItem('theme','light');
 
   }else{
 
-    document.getElementById('pinCard').style.display='';
+    document.documentElement.style.setProperty('--bg','#0f172a');
+
+    document.body.style.color='#e5e7eb';
+
+    localStorage.setItem('theme','dark');
 
   }
 
@@ -162,71 +240,51 @@ async function show(){
 
 
 
-async function login(){
+// Auto-refresh Live Market every 30s + update bottom bar
 
-  const pin = document.getElementById('pin').value.trim();
+(async function marketLoop(){
 
-  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+  async function tick(){
 
-  const msg = document.getElementById('pinMsg');
+    try{
 
-  if(r.ok){
+      const r = await fetch('/api/market',{cache:'no-store'});
 
-    msg.textContent = 'Unlocked.'; msg.className='hint ok';
+      if(!r.ok) return;
 
-    location.reload();
+      const j = await r.json();
 
-  }else{
+      const $ = id=>document.getElementById(id);
 
-    msg.textContent = 'Invalid PIN.'; msg.className='hint err';
+      if($('axoPrice')) $('axoPrice').textContent = j.axo_usd ? `$${j.axo_usd}` : '—';
+
+      if($('xrpPrice')) $('xrpPrice').textContent = j.xrp_usd ? `$${j.xrp_usd}` : '—';
+
+      if($('ratio'))    $('ratio').textContent    = j.axo_per_xrp ? Math.floor(j.axo_per_xrp) : '—';
+
+      if($('marketSource')) $('marketSource').textContent = j.source || '';
+
+      if($('marketTime'))   $('marketTime').textContent   = new Date((j.ts||0)*1000).toLocaleTimeString();
+
+
+
+      // bottom bar
+
+      if($('liveAxoPrice')) $('liveAxoPrice').textContent = j.axo_usd ? `$${j.axo_usd}` : '—';
+
+      if($('liveXrpPrice')) $('liveXrpPrice').textContent = j.xrp_usd ? `$${j.xrp_usd}` : '—';
+
+      if($('liveRatio'))    $('liveRatio').textContent    = j.axo_per_xrp ? Math.floor(j.axo_per_xrp) : '—';
+
+    }catch(e){}
 
   }
 
-}
+  await tick();
 
+  setInterval(tick, 30000);
 
-
-async function load(){
-
-  const r = await fetch('/api/admin/config');
-
-  if(!r.ok) return;
-
-  const data = (await r.json()).data || {};
-
-  document.getElementById('signup_bonus').value = data.signup_bonus ?? 1000;
-
-  document.getElementById('referral_reward').value = data.referral_reward ?? 300;
-
-  document.getElementById('require_trustline').value = String(data.require_trustline ?? true);
-
-}
-
-
-
-async function save(){
-
-  const body = {
-
-    signup_bonus: Number(document.getElementById('signup_bonus').value || 0),
-
-    referral_reward: Number(document.getElementById('referral_reward').value || 0),
-
-    require_trustline: document.getElementById('require_trustline').value === 'true'
-
-  };
-
-  const r = await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-
-  const el = document.getElementById('msg');
-
-  el.textContent = r.ok ? 'Saved.' : 'Save failed';
-
-  el.className = 'hint ' + (r.ok ? 'ok' : 'err');
-
-}
-
-show();
+})();
 
 </script>
 
