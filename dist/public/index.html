@@ -4,435 +4,229 @@
 
 <head>
 
-<meta charset="utf-8"/>
+  <meta charset="utf-8"/>
 
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-<title>AXO Utility Hub</title>
+  <title>AXO Admin</title>
 
-<style>
+  <style>
 
-:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#2563eb;--ok:#10b981;--err:#ef4444}
+    :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
 
-*{box-sizing:border-box}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent) ,var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
-html,body{height:100%}
+    .wrap{max-width:900px;margin:4rem auto;padding:2rem}
 
-body{margin:0;background:radial-gradient(1400px 700px at 50% -10%,#33415522,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;display:flex;min-height:100%}
+    .card{background:var(--panel);border-radius:14px;padding:24px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
 
-.container{max-width:980px;margin:auto;padding:24px;width:100%}
+    h1{margin:0 0 16px;font-size:28px;letter-spacing:.5px}
 
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 
-.badge{font-size:12px;color:#cbd5e1;border:1px solid #374151;padding:6px 10px;border-radius:999px;background:#0b1220}
+    label{display:block;font-size:14px;color:var(--muted);margin:0 0 6px}
 
-.title{display:flex;flex-direction:column;align-items:center;margin:20px 0 24px}
+    input,select{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
 
-.title h1{margin:0;font-size:40px;letter-spacing:.4px}
+    .row{margin:14px 0}
 
-.title p{margin:10px 0 0;color:#cbd5e1}
+    .actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
 
-.card{background:var(--panel);border:1px solid #1f2937;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 12px 30px #0006}
+    button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
 
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
 
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .pin{max-width:420px;margin:80px auto 0}
 
-.label{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
 
-input,button{font:inherit}
+    .hint{color:#94a3b8;font-size:13px;margin-top:6px}
 
-input{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
+    .ok{color:#10b981}
 
-button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
+    .err{color:#f87171}
 
-button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
-
-.row{display:flex;gap:10px;align-items:center}
-
-.center{text-align:center}
-
-.small{font-size:12px;color:#9ca3af}
-
-.kv{display:grid;grid-template-columns:200px 1fr;gap:8px}
-
-.ok{color:var(--ok)}.err{color:var(--err)}
-
-/* light mode */
-
-.light body{background:white;color:#0b1220}
-
-.light .card{background:#ffffff;border-color:#e5e7eb;box-shadow:0 8px 22px #0001}
-
-.light input{background:#f8fafc;border-color:#e5e7eb;color:#0b1220}
-
-.light .badge{background:#eef2ff;color:#334155;border-color:#c7d2fe}
-
-.toggle{display:inline-flex;gap:8px;align-items:center}
-
-.toggle input{width:auto}
-
-a.rocket{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;text-decoration:none}
-
-a.rocket svg{width:20px;height:20px;fill:#cbd5e1}
-
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
-
-</style>
+  </style>
 
 </head>
 
 <body>
 
-<div class="container">
+  <div class="wrap">
 
+    <div id="pinCard" class="card pin" style="display:none">
 
-
-  <!-- Top bar -->
-
-  <div class="topbar">
-
-    <label class="toggle">
-
-      <input id="modeToggle" type="checkbox" />
-
-      <span>Light mode</span>
-
-    </label>
-
-    <span class="badge mono">GMODE Bv3</span>
-
-    <a class="rocket" href="/admin" title="Admin">
-
-      <svg viewBox="0 0 24 24"><path d="M12 2c3.5 0 6.5 2 8 5-3 .5-5.5 2.5-7 5-.5-1.5-1.5-3-3-3 .5-2 1-4 2-7zM6 14c1.5-1.5 3-2.5 4.5-3 .5 1.5 1.5 2.5 3 3-1 1.5-2.5 3-4 4.5-2-.5-3.5-1.5-3.5-4.5zM4 20c1.5 0 2.5-.5 3.5-1.5-.5 1.5-1.5 2.5-3.5 3.5-1-2-1-2-0-2z"/></svg>
-
-    </a>
-
-  </div>
-
-
-
-  <!-- Title -->
-
-  <div class="title">
-
-    <h1>AXO</h1>
-
-    <p>Sign‑up, Referral & XRP → AXO utility hub</p>
-
-  </div>
-
-
-
-  <!-- Steps -->
-
-  <div class="card">
-
-    <h3 class="center" style="margin:6px 0 14px">Quick Start</h3>
-
-    <div class="grid">
-
-      <div>
-
-        <div class="label">1) Your XRPL wallet (r‑address)</div>
-
-        <input id="wallet" placeholder="r................................" />
-
-      </div>
-
-      <div>
-
-        <div class="label">Optional: Referrer wallet (r‑address)</div>
-
-        <input id="ref" placeholder="r................................" />
-
-      </div>
+      <h2>Enter Admin PIN</h2>
 
       <div class="row">
 
-        <button id="btnPrepare" class="primary">Prepare Signup</button>
+        <label for="pin">PIN</label>
 
-        <span id="prepMsg" class="small"></span>
+        <input id="pin" type="password" placeholder="••••••"/>
+
+      </div>
+
+      <div class="actions">
+
+        <button onclick="login()">Unlock</button>
 
       </div>
 
-      <div class="row">
+      <div id="pinMsg" class="hint"></div>
 
-        <button id="btnClaim" class="">Claim 1000 AXO</button>
+    </div>
 
-        <span id="claimMsg" class="small"></span>
+
+
+    <div id="adminCard" class="card" style="display:none">
+
+      <h1>AXO Admin</h1>
+
+      <div class="grid">
+
+        <div>
+
+          <label>Signup Bonus (AXO)</label>
+
+          <input id="signup_bonus" type="number" min="0" step="1" value="1000"/>
+
+        </div>
+
+        <div>
+
+          <label>Referral Reward (AXO)</label>
+
+          <input id="referral_reward" type="number" min="0" step="1" value="300"/>
+
+        </div>
+
+        <div>
+
+          <label>Gate: Require TrustLine</label>
+
+          <select id="require_trustline">
+
+            <option value="true" selected>true</option>
+
+            <option value="false">false</option>
+
+          </select>
+
+        </div>
 
       </div>
+
+      <div class="actions">
+
+        <button onclick="location.href='/'">Close</button>
+
+        <button class="primary" onclick="save()">Save</button>
+
+      </div>
+
+      <div id="msg" class="hint"></div>
 
     </div>
 
   </div>
-
-
-
-  <!-- Live Market -->
-
-  <div class="card">
-
-    <h3 style="margin:6px 0 14px">Live Market Data</h3>
-
-    <div class="grid-3">
-
-      <div>
-
-        <div class="label">XRP Price (USD)</div>
-
-        <div id="xrpPrice" class="mono">$—</div>
-
-      </div>
-
-      <div>
-
-        <div class="label">AXO Price (USD, static)</div>
-
-        <div id="axoPrice" class="mono">$0.01</div>
-
-      </div>
-
-      <div>
-
-        <div class="label">1 XRP =</div>
-
-        <div id="ratio" class="mono">— AXO</div>
-
-      </div>
-
-    </div>
-
-    <div class="small" style="margin-top:10px">Source: <span id="marketSource">coingecko</span> · Updated <span id="marketTime">—</span></div>
-
-  </div>
-
-
-
-  <!-- Buy AXO (stub UI) -->
-
-  <div class="card">
-
-    <h3 style="margin:6px 0 14px">Buy AXO with XRP (optional)</h3>
-
-    <div class="grid">
-
-      <div>
-
-        <div class="label">Your wallet (r‑address)</div>
-
-        <input id="buyWallet" placeholder="r................................"/>
-
-      </div>
-
-      <div>
-
-        <div class="label">Amount (XRP)</div>
-
-        <input id="buyXrp" type="number" min="0" step="0.000001" placeholder="0.0"/>
-
-      </div>
-
-      <div class="row">
-
-        <button id="btnQuote">Get Quote</button>
-
-        <span id="buyMsg" class="small"></span>
-
-      </div>
-
-    </div>
-
-  </div>
-
-
-
-  <div class="center small" style="margin-top:8px;opacity:.8">© AXO</div>
-
-</div>
 
 
 
 <script>
 
-// --- UI: light/dark toggle ---
+async function isAuthed(){
 
-const root = document.documentElement;
+  const r = await fetch('/api/admin/config');
 
-const modeToggle = document.getElementById('modeToggle');
-
-(function initTheme(){
-
-  const saved = localStorage.getItem('axo_theme') || 'dark';
-
-  if(saved === 'light'){ document.documentElement.classList.add('light'); modeToggle.checked = true; }
-
-})();
-
-modeToggle.addEventListener('change', () => {
-
-  if(modeToggle.checked){ document.documentElement.classList.add('light'); localStorage.setItem('axo_theme','light'); }
-
-  else { document.documentElement.classList.remove('light'); localStorage.setItem('axo_theme','dark'); }
-
-});
-
-
-
-// --- Helper ---
-
-const $ = (id) => document.getElementById(id);
-
-
-
-// --- Live Market: poll every 30s ---
-
-async function refreshMarket() {
-
-  try {
-
-    const r = await fetch('/api/market', { cache: 'no-store' });
-
-    if (!r.ok) return;
-
-    const j = await r.json();
-
-    if ($('xrpPrice'))    $('xrpPrice').textContent     = j.xrp_usd ? `$${j.xrp_usd}` : '—';
-
-    if ($('axoPrice'))    $('axoPrice').textContent     = j.axo_usd ? `$${j.axo_usd}` : '—';
-
-    if ($('ratio'))       $('ratio').textContent        = j.axo_per_xrp ? `${Math.floor(j.axo_per_xrp)} AXO` : '—';
-
-    if ($('marketSource'))$('marketSource').textContent = j.source || '';
-
-    if ($('marketTime'))  $('marketTime').textContent   = new Date((j.ts||0)*1000).toLocaleTimeString();
-
-  } catch(e) { /* ignore; try next tick */ }
+  return r.status === 200;
 
 }
 
-refreshMarket();
-
-setInterval(refreshMarket, 30_000);
 
 
+async function show(){
 
-// --- Signup flow (demo endpoints already in main.py) ---
+  if (await isAuthed()){
 
-$('btnPrepare').addEventListener('click', async () => {
+    load();
 
-  const address = ($('wallet').value||'').trim();
+    document.getElementById('adminCard').style.display='';
 
-  const ref = ($('ref').value||'').trim();
+  }else{
 
-  $('prepMsg').textContent = '...';
-
-  try{
-
-    const r = await fetch('/api/signup/prepare', {
-
-      method:'POST',
-
-      headers:{'Content-Type':'application/json'},
-
-      body: JSON.stringify({address, ref})
-
-    });
-
-    const j = await r.json();
-
-    $('prepMsg').textContent = r.ok ? 'Ready. Continue to Claim.' : (j.error || 'Error');
-
-    $('prepMsg').className = 'small ' + (r.ok ? 'ok' : 'err');
-
-  }catch(e){
-
-    $('prepMsg').textContent = 'Network error'; $('prepMsg').className='small err';
+    document.getElementById('pinCard').style.display='';
 
   }
 
-});
+}
 
 
 
-$('btnClaim').addEventListener('click', async () => {
+async function login(){
 
-  const address = ($('wallet').value||'').trim();
+  const pin = document.getElementById('pin').value.trim();
 
-  const ref = ($('ref').value||'').trim();
+  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
 
-  $('claimMsg').textContent = '...';
+  const msg = document.getElementById('pinMsg');
 
-  try{
+  if(r.ok){
 
-    const r = await fetch('/api/signup/claim', {
+    msg.textContent = 'Unlocked.'; msg.className='hint ok';
 
-      method:'POST',
+    location.reload();
 
-      headers:{'Content-Type':'application/json'},
+  }else{
 
-      body: JSON.stringify({address, ref})
-
-    });
-
-    const j = await r.json();
-
-    if(r.ok){
-
-      $('claimMsg').textContent = `Claimed ${j.awarded_axo} AXO` + (j.ref_awarded_axo? ` · Referral +${j.ref_awarded_axo} AXO` : '');
-
-      $('claimMsg').className='small ok';
-
-    }else{
-
-      $('claimMsg').textContent = j.error || 'Error'; $('claimMsg').className='small err';
-
-    }
-
-  }catch(e){
-
-    $('claimMsg').textContent = 'Network error'; $('claimMsg').className='small err';
+    msg.textContent = 'Invalid PIN.'; msg.className='hint err';
 
   }
 
-});
+}
 
 
 
-// --- Buy quote (client-only preview; AXO price from /api/market) ---
+async function load(){
 
-$('btnQuote').addEventListener('click', async () => {
+  const r = await fetch('/api/admin/config');
 
-  $('buyMsg').textContent = '...';
+  if(!r.ok) return;
 
-  try{
+  const data = (await r.json()).data || {};
 
-    const r = await fetch('/api/market', { cache:'no-store' });
+  document.getElementById('signup_bonus').value = data.signup_bonus ?? 1000;
 
-    const j = await r.json();
+  document.getElementById('referral_reward').value = data.referral_reward ?? 300;
 
-    const xrp = parseFloat(($('buyXrp').value||'0').trim());
+  document.getElementById('require_trustline').value = String(data.require_trustline ?? true);
 
-    if(!j.xrp_usd || !j.axo_usd || !xrp || xrp<=0){
+}
 
-      $('buyMsg').textContent = 'Enter amount & wait for price...'; $('buyMsg').className='small err'; return;
 
-    }
 
-    // XRP USD value / AXO USD price = AXO received (client preview)
+async function save(){
 
-    const axo = (j.xrp_usd * xrp) / j.axo_usd;
+  const body = {
 
-    $('buyMsg').textContent = `~ ${Math.floor(axo)} AXO`; $('buyMsg').className='small ok';
+    signup_bonus: Number(document.getElementById('signup_bonus').value || 0),
 
-  }catch(e){
+    referral_reward: Number(document.getElementById('referral_reward').value || 0),
 
-    $('buyMsg').textContent = 'Price unavailable'; $('buyMsg').className='small err';
+    require_trustline: document.getElementById('require_trustline').value === 'true'
 
-  }
+  };
 
-});
+  const r = await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+
+  const el = document.getElementById('msg');
+
+  el.textContent = r.ok ? 'Saved.' : 'Save failed';
+
+  el.className = 'hint ' + (r.ok ? 'ok' : 'err');
+
+}
+
+show();
 
 </script>
 
