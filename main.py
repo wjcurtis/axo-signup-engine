@@ -1,4 +1,4 @@
-# main.py  —  AXO Referral Engine (GMODE Bv3)
+# main.py — AXO Referral Engine (UI tweaks per 2025-08-10)
 
 import os, time, json, functools
 
@@ -6,9 +6,7 @@ from typing import Any, Dict
 
 from flask import Flask, request, jsonify, session, render_template_string
 
-
-
-import requests  # make sure 'requests' is in requirements.txt
+import requests
 
 
 
@@ -18,19 +16,19 @@ app = Flask(__name__)
 
 # ---- Environment / Secrets ----
 
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-me-please")
+app.secret_key   = os.environ.get("FLASK_SECRET_KEY", "change-me-please")
 
-ADMIN_PIN       = os.environ.get("ADMIN_PIN", "")
+ADMIN_PIN        = os.environ.get("ADMIN_PIN", "")
 
-AXO_PRICE_USD   = float(os.environ.get("AXO_PRICE", "0.01"))   # static price you set
+AXO_PRICE_USD    = float(os.environ.get("AXO_PRICE", "0.01"))
 
-XRP_VAULT_ADDR  = os.environ.get("XRP_VAULT_ADDR", "")
+XRP_VAULT_ADDR   = os.environ.get("XRP_VAULT_ADDR", "")
 
-WALLET_SEED     = os.environ.get("WALLET_SEED", "")
+WALLET_SEED      = os.environ.get("WALLET_SEED", "")
 
 
 
-# ---- Volatile server-side settings (editable from Admin). Defaults below. ----
+# ---- Admin-editable settings ----
 
 SETTINGS: Dict[str, Any] = {
 
@@ -38,19 +36,19 @@ SETTINGS: Dict[str, Any] = {
 
     "referral_reward": 300,
 
-    "require_trustline": True,          # you said this will be automatic, we keep toggle if you need it
+    "require_trustline": True,
 
-    "axo_price_usd": AXO_PRICE_USD,     # mirrors env at boot; can be changed live in Admin
+    "axo_price_usd": AXO_PRICE_USD,
 
     "buy_enabled": True,
 
     "quick_signup_enabled": False,
 
-    "fee_xrp": 0.25,                    # flat fee per claim (XRPL network fee comes out of this)
+    "fee_xrp": 0.25,
 
     "vault_addr": XRP_VAULT_ADDR,
 
-    "daily_cap_axo": 0,                 # 0 = no cap
+    "daily_cap_axo": 0,
 
     "max_claims_per_wallet": 1,
 
@@ -68,8 +66,6 @@ SETTINGS: Dict[str, Any] = {
 
 
 
-# ---------------- Helpers ----------------
-
 def admin_required(fn):
 
     @functools.wraps(fn)
@@ -86,27 +82,15 @@ def admin_required(fn):
 
 
 
-# ---------------- Public API ----------------
+# -------- Public API --------
 
 @app.route("/api/market")
 
 def api_market():
 
-    """
-
-    Returns { axo_usd, xrp_usd, axo_per_xrp, source, t }.
-
-    AXO price is static (from SETTINGS). XRP pulled live from CoinGecko.
-
-    """
-
     axo_usd = float(SETTINGS.get("axo_price_usd") or 0.01)
 
-
-
-    xrp_usd = 0.0
-
-    source = "coingecko"
+    xrp_usd, source = 0.0, "coingecko"
 
     try:
 
@@ -118,29 +102,19 @@ def api_market():
 
             timeout=6,
 
-            headers={"Accept": "application/json"}
+            headers={"Accept":"application/json"}
 
         )
 
         if r.ok:
 
-            data = r.json()
-
-            xrp_usd = float(data.get("ripple", {}).get("usd") or 0.0)
+            xrp_usd = float(r.json().get("ripple", {}).get("usd") or 0.0)
 
     except Exception:
 
         source = "coingecko_error"
 
-
-
-    axo_per_xrp = 0.0
-
-    if axo_usd > 0 and xrp_usd > 0:
-
-        axo_per_xrp = xrp_usd / axo_usd
-
-
+    axo_per_xrp = (xrp_usd / axo_usd) if axo_usd > 0 and xrp_usd > 0 else 0.0
 
     return jsonify({
 
@@ -158,7 +132,7 @@ def api_market():
 
 
 
-# ---------------- Admin API ----------------
+# -------- Admin API --------
 
 @app.route("/api/admin/login", methods=["POST"])
 
@@ -168,15 +142,15 @@ def admin_login():
 
     if not ADMIN_PIN:
 
-        return jsonify({"error": "ADMIN_PIN not configured"}), 500
+        return jsonify({"error":"ADMIN_PIN not configured"}), 500
 
-    if pin and pin == ADMIN_PIN:
+    if pin == ADMIN_PIN:
 
         session["admin_authed"] = True
 
         return jsonify({"ok": True})
 
-    return jsonify({"error": "bad_pin"}), 401
+    return jsonify({"error":"bad_pin"}), 401
 
 
 
@@ -196,7 +170,7 @@ def admin_config():
 
     if not session.get("admin_authed"):
 
-        return jsonify({"error": "unauthorized"}), 401
+        return jsonify({"error":"unauthorized"}), 401
 
     return jsonify({"data": SETTINGS})
 
@@ -210,17 +184,15 @@ def admin_config_save():
 
     body = request.get_json(force=True, silent=True) or {}
 
-    # Normalize types
+    def as_bool(v):  return v if isinstance(v, bool) else str(v).lower()=="true"
 
-    def as_bool(v): return (str(v).lower() == "true") if not isinstance(v, bool) else v
-
-    def as_float(v, d=0.0):
+    def as_float(v,d=0.0):
 
         try: return float(v)
 
         except: return d
 
-    def as_int(v, d=0):
+    def as_int(v,d=0):
 
         try: return int(float(v))
 
@@ -233,8 +205,6 @@ def admin_config_save():
         if isinstance(v, list): return v
 
         return [x.strip() for x in str(v).split(",") if x.strip()]
-
-
 
     SETTINGS.update({
 
@@ -270,21 +240,11 @@ def admin_config_save():
 
     })
 
-    # Mirror into env-backed value for consistency if Admin changes static price:
-
-    global AXO_PRICE_USD
-
-    AXO_PRICE_USD = SETTINGS["axo_price_usd"]
-
-
-
     return jsonify({"ok": True, "data": SETTINGS})
 
 
 
-# ---------------- Pages (inline templates so you only replace main.py) ----------------
-
-
+# -------- Pages (inline HTML) --------
 
 INDEX_HTML = r"""
 
@@ -304,33 +264,31 @@ INDEX_HTML = r"""
 
 :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#2563eb;--panelBorder:#1f2937}
 
-*{box-sizing:border-box}
-
-html,body{height:100%}
+*{box-sizing:border-box} html,body{height:100%}
 
 body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
-.light body,.light{background:#f7f7fb;color:#111827}
+.light body,.light{background:#ffffff;color:#111827}
 
 .topbar{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:10}
 
-.iconbtn{background:#00000033;border:1px solid #ffffff22;color:#fff;padding:8px 10px;border-radius:12px;cursor:pointer;backdrop-filter:blur(3px)}
+.iconbtn{border:1px solid #e5e7eb;padding:8px 12px;border-radius:14px;cursor:pointer;background:#ffffff;color:#111827;box-shadow:0 2px 6px #0003}
 
 .iconbtn:hover{transform:translateY(-1px)}
 
 .wrap{max-width:880px;margin:80px auto 40px;padding:0 16px}
 
-h1{margin:10px 0 4px;font-size:36px;text-align:center}
+h1{margin:10px 0 4px;font-size:64px;line-height:1;text-align:center}
 
-.sub{margin:0 0 16px;text-align:center;color:var(--muted);font-size:14px;letter-spacing:.16em}
+.sub{margin:0 0 16px;text-align:center;color:var(--muted);font-size:16px;letter-spacing:.12em;font-weight:700}
 
 .card{background:var(--panel);border:1px solid var(--panelBorder);border-radius:14px;padding:18px;box-shadow:0 12px 30px #0007}
 
 .section{border:1px dashed #2b3344;border-radius:12px;margin:12px 0;padding:14px}
 
-.row{display:flex;gap:10px;align-items:center}
+.row{display:flex;gap:10px;align-items:center;justify-content:center}
 
-.row input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;outline:none}
+.row input{flex:1;max-width:460px;padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;outline:none}
 
 button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
 
@@ -338,11 +296,13 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
 .note{color:#94a3b8;font-size:12px;margin-left:8px}
 
-.kv{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:4px;font-size:12px;color:#a5b4fc}
-
-.footerbar{position:fixed;left:0;right:0;bottom:0;padding:6px 10px;background:#0b1220;color:#cbd5e1;border-top:1px solid #1f2937;font-size:12px}
+.kv{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:6px;font-size:12px;color:#a5b4fc}
 
 .center{display:flex;justify-content:center}
+
+.light .card{background:#f7f7fb;border-color:#e5e7eb}
+
+.light .row input{background:#ffffff;color:#111827;border-color:#d1d5db}
 
 </style>
 
@@ -364,7 +324,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
     <h1>AXO</h1>
 
-    <div class="sub">XRPL Signup & Referral Engine <span style="opacity:.6">GMODE Bv3</span></div>
+    <div class="sub">XRPL Signup & Referral Engine</div>
 
 
 
@@ -372,11 +332,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
       <div class="section">
 
-        <div class="row">
-
-          <strong>1. Connect XUMM Wallet</strong>
-
-        </div>
+        <div class="row"><strong>1. Connect XUMM Wallet</strong></div>
 
         <div class="row" style="margin-top:8px">
 
@@ -386,7 +342,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
         </div>
 
-        <div class="note">We’ll verify your wallet and prepare your bonus.</div>
+        <div class="row"><span class="note">We’ll verify your wallet and prepare your bonus.</span></div>
 
       </div>
 
@@ -394,19 +350,9 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
       <div class="section">
 
-        <div class="row">
+        <div class="row"><strong>2. Set AXO Trust Line</strong> <span class="note">Required before claiming bonus.</span></div>
 
-          <strong>2. Set AXO Trust Line</strong>
-
-          <span class="note">Required before claiming bonus.</span>
-
-        </div>
-
-        <div class="row" style="margin-top:8px">
-
-          <button>Open in XUMM</button>
-
-        </div>
+        <div class="row" style="margin-top:8px"><button>Open in XUMM</button></div>
 
       </div>
 
@@ -414,21 +360,17 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
       <div class="section">
 
-        <div class="row">
-
-          <strong>3. Claim Signup Bonus</strong>
-
-        </div>
+        <div class="row"><strong>3. Claim Signup Bonus</strong></div>
 
         <div class="row" style="margin-top:8px">
 
-          <input id="ref" placeholder="Referral code (optional — r-addr)">
+          <input id="ref" placeholder="Referral code (optional — r‑addr)">
 
           <button class="primary">Claim 1000 AXO</button>
 
         </div>
 
-        <div class="note">Referral reward: 300 AXO (auto when referral is valid).</div>
+        <div class="row"><span class="note">Referral reward: 300 AXO (auto when referral is valid).</span></div>
 
       </div>
 
@@ -436,17 +378,9 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
       <div class="section">
 
-        <div class="row">
+        <div class="row"><strong>4. Purchase AXO with XRP (optional)</strong></div>
 
-          <strong>4. Purchase AXO with XRP (optional)</strong>
-
-        </div>
-
-        <div class="row" style="margin-top:8px">
-
-          <button>Open Purchase Flow</button>
-
-        </div>
+        <div class="row" style="margin-top:8px"><button>Open Purchase Flow</button></div>
 
       </div>
 
@@ -456,7 +390,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
         <div class="row"><strong>Live Market Data</strong></div>
 
-        <div class="row center" style="margin-top:8px">
+        <div class="row" style="margin-top:8px">
 
           <div id="m_axo" class="kv">AXO Price (USD): 0.0000</div>
 
@@ -466,7 +400,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
         </div>
 
-        <div class="kv" id="m_src">Source demo • --:--:--</div>
+        <div class="kv" id="m_src">Source • --:--:--</div>
 
       </div>
 
@@ -476,29 +410,11 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
 
 
-  <div class="footerbar" id="ticker">
-
-    <span id="t_axo">AXO: $0.01 USD</span>
-
-    &nbsp;&nbsp;|&nbsp;&nbsp;
-
-    <span id="t_xrp">XRP: $0.0000 USD</span>
-
-    &nbsp;&nbsp;|&nbsp;&nbsp;
-
-    <span id="t_rate">1 XRP = 0 AXO</span>
-
-    &nbsp;&nbsp; <span id="t_src" style="opacity:.6"></span>
-
-  </div>
-
-
-
 <script>
 
 (function(){
 
-  // Theme toggle
+  // Theme toggle (button is white by design)
 
   const root = document.getElementById('root');
 
@@ -518,11 +434,13 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
 
 
-  // Admin button
+  // Admin
 
   document.getElementById('adminBtn').onclick = () => { location.href = '/admin'; };
 
 
+
+  // Live Market refresher
 
   async function refreshMarket(){
 
@@ -538,11 +456,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
       const rate = Number(j.axo_per_xrp || 0).toFixed(2);
 
-
-
-      const t = new Date((j.t||0)*1000);
-
-      const ts = t.toLocaleTimeString();
+      const ts = new Date((j.t||0)*1000).toLocaleTimeString();
 
 
 
@@ -552,25 +466,11 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
       document.getElementById('m_rate').textContent = `1 XRP = ${rate} AXO`;
 
-      document.getElementById('m_src').textContent = `source: ${j.source} • ${ts}`;
+      document.getElementById('m_src').textContent  = `source: ${j.source} • ${ts}`;
 
+    }catch(e){}
 
-
-      document.getElementById('t_axo').textContent = `AXO: $${axo} USD`;
-
-      document.getElementById('t_xrp').textContent = `XRP: $${xrp} USD`;
-
-      document.getElementById('t_rate').textContent = `1 XRP = ${rate} AXO`;
-
-      document.getElementById('t_src').textContent = `(${j.source} @ ${ts})`;
-
-    }catch(e){
-
-      // keep last known values
-
-    }
-
-    setTimeout(refreshMarket, 60000); // every minute
+    setTimeout(refreshMarket, 60000);
 
   }
 
@@ -654,27 +554,13 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 <div class="wrap">
 
-  <!-- PIN Card -->
-
   <div id="pinCard" class="card pin" style="display:none">
 
     <h2>Enter Admin PIN</h2>
 
-    <div class="row">
+    <div class="row"><label for="pin">PIN</label><input id="pin" type="password" placeholder="••••••"/></div>
 
-      <label for="pin">PIN</label>
-
-      <input id="pin" type="password" placeholder="••••••"/>
-
-    </div>
-
-    <div class="actions">
-
-      <button onclick="login()">Unlock</button>
-
-      <button onclick="goHome()">Back</button>
-
-    </div>
+    <div class="actions"><button onclick="login()">Unlock</button><button onclick="goHome()">Back</button></div>
 
     <div id="pinMsg" class="hint"></div>
 
@@ -682,15 +568,11 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 
 
-  <!-- Admin Card -->
-
   <div id="adminCard" class="card" style="display:none">
 
     <h1>AXO Admin</h1>
 
 
-
-    <!-- Incentives -->
 
     <h2>Incentives</h2>
 
@@ -700,19 +582,11 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
       <div><label>Referral Reward (AXO)</label><input id="referral_reward" type="number" min="0" step="1"></div>
 
-      <div>
-
-        <label>Require TrustLine</label>
-
-        <select id="require_trustline"><option>true</option><option>false</option></select>
-
-      </div>
+      <div><label>Require TrustLine</label><select id="require_trustline"><option>true</option><option>false</option></select></div>
 
     </div>
 
 
-
-    <!-- Pricing -->
 
     <h2>Pricing & Flow</h2>
 
@@ -728,8 +602,6 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 
 
-    <!-- Fees / Vault -->
-
     <h2>Fees & Vault</h2>
 
     <div class="grid">
@@ -743,8 +615,6 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
     </div>
 
 
-
-    <!-- Abuse & Limits -->
 
     <h2>Abuse & Limits</h2>
 
@@ -760,33 +630,17 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
     <div class="grid" style="margin-top:10px">
 
-      <div class="row">
+      <div class="row"><label>Whitelist (comma r-...)</label><textarea id="whitelist_addresses" placeholder="r...., r...."></textarea></div>
 
-        <label>Whitelist (comma r-...)</label>
-
-        <textarea id="whitelist_addresses" placeholder="r...., r...."></textarea>
-
-      </div>
-
-      <div class="row">
-
-        <label>Blacklist (comma r-...)</label>
-
-        <textarea id="blacklist_addresses" placeholder="r...., r...."></textarea>
-
-      </div>
+      <div class="row"><label>Blacklist (comma r-...)</label><textarea id="blacklist_addresses" placeholder="r...., r...."></textarea></div>
 
       <div>
 
-        <label>Airdrop Paused</label>
-
-        <select id="airdrop_paused"><option>false</option><option>true</option></select>
+        <label>Airdrop Paused</label><select id="airdrop_paused"><option>false</option><option>true</option></select>
 
         <div class="row"></div>
 
-        <label>Maintenance Mode</label>
-
-        <select id="maintenance_mode"><option>false</option><option>true</option></select>
+        <label>Maintenance Mode</label><select id="maintenance_mode"><option>false</option><option>true</option></select>
 
       </div>
 
@@ -794,13 +648,7 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 
 
-    <div class="actions">
-
-      <button onclick="logoutAndHome()">Close</button>
-
-      <button class="primary" onclick="saveAndExit()">Save</button>
-
-    </div>
+    <div class="actions"><button onclick="logoutAndHome()">Close</button><button class="primary" onclick="saveAndExit()">Save</button></div>
 
     <div id="msg" class="hint"></div>
 
@@ -814,39 +662,15 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 function goHome(){ location.href = '/'; }
 
+async function isAuthed(){ const r = await fetch('/api/admin/config'); return r.status===200; }
 
-
-async function isAuthed(){
-
-  const r = await fetch('/api/admin/config');
-
-  return r.status === 200;
-
-}
-
-
-
-async function show(){
-
-  if(await isAuthed()){ await load(); adminCard.style.display=''; }
-
-  else { pinCard.style.display=''; }
-
-}
-
-
+async function show(){ if(await isAuthed()){ await load(); adminCard.style.display=''; } else { pinCard.style.display=''; } }
 
 async function login(){
 
   const pin = document.getElementById('pin').value.trim();
 
-  const r = await fetch('/api/admin/login',{
-
-    method:'POST', headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify({pin})
-
-  });
+  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
 
   const m = document.getElementById('pinMsg');
 
@@ -856,69 +680,25 @@ async function login(){
 
 }
 
+async function logout(){ await fetch('/api/admin/logout',{method:'POST'}); }
 
+async function logoutAndHome(){ await logout(); goHome(); }
 
-async function logout(){
-
-  await fetch('/api/admin/logout',{method:'POST'});
-
-}
-
-
-
-async function logoutAndHome(){
-
-  await logout();
-
-  goHome();
-
-}
-
-
-
-async function saveAndExit(){
-
-  const ok = await save(true);
-
-  await logout();
-
-  goHome();
-
-}
-
-
+async function saveAndExit(){ await save(true); await logout(); goHome(); }
 
 async function load(){
 
-  const r = await fetch('/api/admin/config');
-
-  if(!r.ok) return;
+  const r = await fetch('/api/admin/config'); if(!r.ok) return;
 
   const s = (await r.json()).data || {};
 
-  for (const k of [
+  for(const k of ['signup_bonus','referral_reward','require_trustline','axo_price_usd','buy_enabled','quick_signup_enabled','fee_xrp','vault_addr','daily_cap_axo','max_claims_per_wallet','rate_limit_claims_per_hour','whitelist_addresses','blacklist_addresses','airdrop_paused','maintenance_mode']){
 
-    'signup_bonus','referral_reward','require_trustline',
+    const el = document.getElementById(k); if(!el) continue;
 
-    'axo_price_usd','buy_enabled','quick_signup_enabled',
+    if(el.tagName==='SELECT') el.value = String(s[k]);
 
-    'fee_xrp','vault_addr',
-
-    'daily_cap_axo','max_claims_per_wallet','rate_limit_claims_per_hour',
-
-    'whitelist_addresses','blacklist_addresses',
-
-    'airdrop_paused','maintenance_mode'
-
-  ]) {
-
-    const el = document.getElementById(k);
-
-    if(!el) continue;
-
-    if (el.tagName==='SELECT') el.value = String(s[k]);
-
-    else if (el.tagName==='TEXTAREA') el.value = (s[k]||[]).join(', ');
+    else if(el.tagName==='TEXTAREA') el.value = (s[k]||[]).join(', ');
 
     else el.value = s[k] ?? '';
 
@@ -926,87 +706,53 @@ async function load(){
 
 }
 
-
-
 async function save(silent=false){
-
-  const body = {};
 
   const v = id => document.getElementById(id).value;
 
+  const body = {
 
+    signup_bonus: Number(v('signup_bonus')||0),
 
-  body.signup_bonus = Number(v('signup_bonus')||0);
+    referral_reward: Number(v('referral_reward')||0),
 
-  body.referral_reward = Number(v('referral_reward')||0);
+    require_trustline: (v('require_trustline')==='true'),
 
-  body.require_trustline = (v('require_trustline')==='true');
+    axo_price_usd: Number(v('axo_price_usd')||0.01),
 
+    buy_enabled: (v('buy_enabled')==='true'),
 
+    quick_signup_enabled: (v('quick_signup_enabled')==='true'),
 
-  body.axo_price_usd = Number(v('axo_price_usd')||0.01);
+    fee_xrp: Number(v('fee_xrp')||0),
 
-  body.buy_enabled = (v('buy_enabled')==='true');
+    vault_addr: v('vault_addr').trim(),
 
-  body.quick_signup_enabled = (v('quick_signup_enabled')==='true');
+    daily_cap_axo: Number(v('daily_cap_axo')||0),
 
+    max_claims_per_wallet: Number(v('max_claims_per_wallet')||1),
 
+    rate_limit_claims_per_hour: Number(v('rate_limit_claims_per_hour')||1),
 
-  body.fee_xrp = Number(v('fee_xrp')||0);
+    whitelist_addresses: v('whitelist_addresses'),
 
-  body.vault_addr = v('vault_addr').trim();
+    blacklist_addresses: v('blacklist_addresses'),
 
+    airdrop_paused: (v('airdrop_paused')==='true'),
 
+    maintenance_mode: (v('maintenance_mode')==='true'),
 
-  body.daily_cap_axo = Number(v('daily_cap_axo')||0);
+  };
 
-  body.max_claims_per_wallet = Number(v('max_claims_per_wallet')||1);
+  const r = await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 
-  body.rate_limit_claims_per_hour = Number(v('rate_limit_claims_per_hour')||1);
+  if(silent) return r.ok;
 
-
-
-  body.whitelist_addresses = v('whitelist_addresses');
-
-  body.blacklist_addresses = v('blacklist_addresses');
-
-  body.airdrop_paused = (v('airdrop_paused')==='true');
-
-  body.maintenance_mode = (v('maintenance_mode')==='true');
-
-
-
-  const r = await fetch('/api/admin/config',{
-
-    method:'POST', headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify(body)
-
-  });
-
-
-
-  if (silent) return r.ok;
-
-
-
-  const el = document.getElementById('msg');
-
-  el.textContent = r.ok ? 'Saved.' : 'Save failed';
-
-  el.className = 'hint ' + (r.ok?'ok':'err');
-
-  return r.ok;
+  const el = document.getElementById('msg'); el.textContent = r.ok?'Saved.':'Save failed'; el.className='hint '+(r.ok?'ok':'err'); return r.ok;
 
 }
 
-
-
-const pinCard = document.getElementById('pinCard');
-
-const adminCard = document.getElementById('adminCard');
-
-show();
+const pinCard = document.getElementById('pinCard'); const adminCard = document.getElementById('adminCard'); show();
 
 </script>
 
@@ -1031,11 +777,3 @@ def home():
 def admin_page():
 
     return render_template_string(ADMIN_HTML)
-
-
-
-# ---------------- Run (Render uses gunicorn to import app) ----------------
-
-# No app.run() here; Render's Start Command should be like:
-
-# gunicorn -k sync -b 0.0.0.0:$PORT main:app
