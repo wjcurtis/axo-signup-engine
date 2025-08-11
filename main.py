@@ -1,74 +1,114 @@
-# main.py — AXO Utility Hub (Flask + SPA + Embedded Admin UI)
+import os, json, time
 
-# Fixes: ADMIN_PIN recognition + cookie/session policy so admin login works reliably.
+from functools import wraps
 
 
-
-import os, time, threading
-
-from typing import Any, Dict, Set
 
 import requests
 
-from flask import (
-
-    Flask, jsonify, request, send_from_directory, session, make_response,
-
-    render_template_string
-
-)
+from flask import Flask, send_from_directory, jsonify, request, session, make_response
 
 
 
-# ------------------ App & Session ------------------
+# ----------- Config ----------
 
-app = Flask(__name__)
+ROOT = os.getcwd()
 
-
-
-# You already set this in Render → Environment
-
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.urandom(32))
-
-
-
-# Ensure the session cookie behaves well on Render:
-
-app.config.update(
-
-    SESSION_COOKIE_SAMESITE="Lax",   # cookie sent on same-site fetches
-
-    SESSION_COOKIE_SECURE=True,      # HTTPS only (Render uses HTTPS)
-
-    SESSION_COOKIE_NAME="axo_admin_sess"
-
-)
-
-
-
-# ------------------ Admin PIN (env) ------------------
-
-# Accept either ADMIN_PIN or ADMIN_PASSWORD; trim whitespace just in case.
-
-ADMIN_PIN = (os.environ.get("ADMIN_PIN") or os.environ.get("ADMIN_PASSWORD") or "0000").strip()
-
-
-
-# ------------------ Static SPA ------------------
-
-STATIC_ROOT = os.path.join(os.getcwd(), "dist", "public")
+STATIC_ROOT = os.path.join(ROOT, "dist", "public")  # serves / (index.html) and /assets/*
 
 INDEX_FILE = os.path.join(STATIC_ROOT, "index.html")
 
-if not os.path.exists(INDEX_FILE):
-
-    raise RuntimeError("index.html not found at " + INDEX_FILE)
 
 
+ADMIN_PIN = os.getenv("ADMIN_PIN", "").strip()
+
+AXO_PRICE = float(os.getenv("AXO_PRICE", "0.01"))      # static AXO price (USD)
+
+XRP_VAULT_ADDR = os.getenv("XRP_VAULT_ADDR", "")
+
+WALLET_SEED = os.getenv("WALLET_SEED", "")
+
+
+
+SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "replace-this-with-a-long-random-string")
+
+
+
+# ----------- App -------------
+
+app = Flask(__name__)
+
+app.config["SECRET_KEY"] = SECRET_KEY
+
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+app.config["SESSION_COOKIE_SECURE"] = True
+
+
+
+# Simple in‑memory admin “config” (can be extended or persisted later)
+
+ADMIN_STATE = {
+
+    "signup_bonus": 1000,
+
+    "referral_reward": 300,
+
+    "require_trustline": True,
+
+    "axo_price_usd": AXO_PRICE,
+
+    "buy_enabled": True,
+
+    "quick_signup_enabled": False,
+
+    "fee_xrp": 0.25,
+
+    "vault_addr": XRP_VAULT_ADDR,
+
+    "daily_cap_axo": 0,
+
+    "max_claims_per_wallet": 1,
+
+    "rate_limit_claims_per_hour": 6,
+
+    "whitelist_addresses": [],
+
+    "blacklist_addresses": [],
+
+    "airdrop_paused": False,
+
+    "maintenance_mode": False,
+
+}
+
+
+
+# ----------- Helpers ----------
+
+def admin_required(fn):
+
+    @wraps(fn)
+
+    def _wrap(*args, **kwargs):
+
+        if not session.get("is_admin"):
+
+            return jsonify({"error": "auth required"}), 401
+
+        return fn(*args, **kwargs)
+
+    return _wrap
+
+
+
+
+
+# ----------- Static routes ----
 
 @app.route("/")
 
-def root():
+def serve_index():
 
     return send_from_directory(STATIC_ROOT, "index.html")
 
@@ -76,47 +116,31 @@ def root():
 
 @app.route("/assets/<path:filename>")
 
-def assets(filename: str):
+def serve_assets(filename: str):
 
     return send_from_directory(os.path.join(STATIC_ROOT, "assets"), filename)
 
 
 
-# ------------------ State (in-memory; resets on deploy) ------------------
-
-STATE_LOCK = threading.Lock()
-
-SETTINGS: Dict[str, Any] = {
-
-    "signup_bonus": 1000,
-
-    "referral_reward": 300,
-
-    "axo_price_usd": float(os.environ.get("AXO_PRICE_USD", os.environ.get("AXO_PRICE", "0.01")) or 0.01),
-
-    "fee_xrp": 0.25,
-
-    "vault_addr": (os.environ.get("XRPL_VAULT_ADDR") or os.environ.get("XRP_VAULT_ADDR") or "").strip()
-
-}
-
-BLOCKED: Set[str] = set()
-
-CLAIMED: Set[str] = set()  # one-time signup bonus enforcement
 
 
+# ----------- API: market ------
 
-def admin_authed() -> bool:
+# Returns: { axo_usd, xrp_usd, axo_per_xrp, source, ts }
 
-    return bool(session.get("is_admin"))
+@app.route("/api/market")
 
+def api_market():
 
+    axo_usd = float(ADMIN_STATE.get("axo_price_usd", AXO_PRICE) or AXO_PRICE)
 
-# ------------------ Market API ------------------
+    xrp_usd = 0.0
 
-def fetch_xrp_usd(timeout: float = 6.0) -> float:
+    source = "coingecko"
 
     try:
+
+        # small, fast endpoint
 
         r = requests.get(
 
@@ -124,443 +148,219 @@ def fetch_xrp_usd(timeout: float = 6.0) -> float:
 
             params={"ids": "ripple", "vs_currencies": "usd"},
 
-            timeout=timeout
+            timeout=6,
 
         )
 
         if r.ok:
 
-            return float(r.json().get("ripple", {}).get("usd", 0) or 0.0)
+            xrp_usd = float(r.json().get("ripple", {}).get("usd", 0) or 0)
+
+        else:
+
+            source = f"coingecko:{r.status_code}"
 
     except Exception:
 
-        pass
-
-    return 0.0
+        source = "coingecko:error"
 
 
 
-@app.get("/api/market")
+    axo_per_xrp = (xrp_usd / axo_usd) if (axo_usd > 0 and xrp_usd > 0) else 0.0
 
-def api_market():
+    return jsonify({
 
-    with STATE_LOCK:
+        "axo_usd": round(axo_usd, 6),
 
-        axo = float(SETTINGS["axo_price_usd"])
+        "xrp_usd": round(xrp_usd, 6),
 
-    xrp = fetch_xrp_usd()
+        "axo_per_xrp": axo_per_xrp,
 
-    axo_per_xrp = (xrp/axo) if (axo > 0 and xrp > 0) else 0.0
-
-    payload = {
-
-        "axo_usd": round(axo, 6),
-
-        "xrp_usd": round(xrp, 6),
-
-        "axo_per_xrp": round(axo_per_xrp, 6) if axo_per_xrp else 0,
-
-        "source": "coingecko",
+        "source": source,
 
         "ts": int(time.time())
 
-    }
-
-    resp = make_response(jsonify(payload))
-
-    resp.headers["Cache-Control"] = "no-store"
-
-    return resp
+    })
 
 
 
-# ------------------ Admin (UI + Auth + Config) ------------------
-
-@app.get("/admin")
-
-def admin_ui():
-
-    return render_template_string(ADMIN_HTML)
 
 
+# ----------- API: admin auth ---
 
-@app.post("/api/admin/login")
+@app.route("/api/admin/login", methods=["POST"])
 
 def admin_login():
 
-    data = request.get_json(silent=True) or {}
+    if not ADMIN_PIN:
 
-    pin = str(data.get("pin", "")).strip()
+        return jsonify({"error": "ADMIN_PIN not set"}), 500
 
-    if pin == ADMIN_PIN and len(pin) > 0:
+    try:
+
+        pin = (request.get_json() or {}).get("pin", "").strip()
+
+    except Exception:
+
+        pin = ""
+
+    if pin and pin == ADMIN_PIN:
 
         session["is_admin"] = True
 
+        # short session; adjust as needed
+
         session.permanent = False
 
-        resp = make_response(jsonify({"ok": True}))
+        return jsonify({"ok": True})
 
-        resp.headers["Cache-Control"] = "no-store"
-
-        return resp
-
-    return jsonify({"ok": False, "error": "Invalid PIN"}), 401
+    return jsonify({"error": "invalid pin"}), 401
 
 
 
-@app.post("/api/admin/logout")
+
+
+@app.route("/api/admin/logout", methods=["POST"])
 
 def admin_logout():
 
-    session.pop("is_admin", None)
+    session.clear()
 
     resp = make_response(jsonify({"ok": True}))
 
-    resp.headers["Cache-Control"] = "no-store"
-
     return resp
 
 
 
-@app.get("/api/admin/config")
+
+
+# ----------- API: admin config -
+
+@app.route("/api/admin/config", methods=["GET"])
+
+@admin_required
 
 def admin_get_config():
 
-    if not admin_authed():
-
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-
-    with STATE_LOCK:
-
-        data = {"ok": True, "data": SETTINGS, "blacklist": sorted(BLOCKED)}
-
-    resp = make_response(jsonify(data))
-
-    resp.headers["Cache-Control"] = "no-store"
-
-    return resp
+    return jsonify({"data": ADMIN_STATE})
 
 
 
-@app.post("/api/admin/config")
+@app.route("/api/admin/config", methods=["POST"])
+
+@admin_required
 
 def admin_set_config():
 
-    if not admin_authed():
+    try:
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        data = request.get_json() or {}
 
-    body = request.get_json(silent=True) or {}
+        # coerce types safely
 
-    with STATE_LOCK:
+        def to_bool(v): return str(v).lower() == "true" if isinstance(v, str) else bool(v)
 
-        if "signup_bonus" in body:    SETTINGS["signup_bonus"] = int(body["signup_bonus"])
+        def to_num(v, d=0): 
 
-        if "referral_reward" in body: SETTINGS["referral_reward"] = int(body["referral_reward"])
+            try: return float(v)
 
-        if "axo_price_usd" in body:   SETTINGS["axo_price_usd"] = float(body["axo_price_usd"])
+            except Exception: return d
 
-        if "fee_xrp" in body:         SETTINGS["fee_xrp"] = float(body["fee_xrp"])
 
-        if "vault_addr" in body:      SETTINGS["vault_addr"] = str(body["vault_addr"]).strip()
 
-    # Force re-login next time:
+        ADMIN_STATE.update({
 
-    session.pop("is_admin", None)
+            "signup_bonus": int(to_num(data.get("signup_bonus"), ADMIN_STATE["signup_bonus"])),
 
-    resp = make_response(jsonify({"ok": True, "data": SETTINGS}))
+            "referral_reward": int(to_num(data.get("referral_reward"), ADMIN_STATE["referral_reward"])),
 
-    resp.headers["Cache-Control"] = "no-store"
+            "require_trustline": to_bool(data.get("require_trustline")),
 
-    return resp
+            "axo_price_usd": float(to_num(data.get("axo_price_usd"), ADMIN_STATE["axo_price_usd"])),
 
+            "buy_enabled": to_bool(data.get("buy_enabled")),
 
+            "quick_signup_enabled": to_bool(data.get("quick_signup_enabled")),
 
-# ------------------ Admin: Blacklist & Manual Transfer (stub) ------------------
+            "fee_xrp": float(to_num(data.get("fee_xrp"), ADMIN_STATE["fee_xrp"])),
 
-@app.post("/api/admin/blacklist/add")
+            "vault_addr": (data.get("vault_addr") or "").strip() or ADMIN_STATE["vault_addr"],
 
-def admin_bl_add():
+            "daily_cap_axo": int(to_num(data.get("daily_cap_axo"), ADMIN_STATE["daily_cap_axo"])),
 
-    if not admin_authed():
+            "max_claims_per_wallet": int(to_num(data.get("max_claims_per_wallet"), ADMIN_STATE["max_claims_per_wallet"])),
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+            "rate_limit_claims_per_hour": int(to_num(data.get("rate_limit_claims_per_hour"), ADMIN_STATE["rate_limit_claims_per_hour"])),
 
-    w = str((request.get_json(silent=True) or {}).get("wallet","")).strip()
+            "whitelist_addresses": [x.strip() for x in (data.get("whitelist_addresses") or "").split(",") if x.strip()],
 
-    if not (w and w.startswith("r")):
+            "blacklist_addresses": [x.strip() for x in (data.get("blacklist_addresses") or "").split(",") if x.strip()],
 
-        return jsonify({"ok": False, "error": "Invalid wallet"}), 400
+            "airdrop_paused": to_bool(data.get("airdrop_paused")),
 
-    with STATE_LOCK:
+            "maintenance_mode": to_bool(data.get("maintenance_mode")),
 
-        BLOCKED.add(w)
+        })
 
-        bl = sorted(BLOCKED)
+        return jsonify({"ok": True, "data": ADMIN_STATE})
 
-    return jsonify({"ok": True, "blacklist": bl})
+    except Exception as e:
 
+        return jsonify({"error": "bad request", "detail": str(e)}), 400
 
 
-@app.post("/api/admin/blacklist/remove")
 
-def admin_bl_remove():
 
-    if not admin_authed():
 
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+# ----------- Admin page (/admin)
 
-    w = str((request.get_json(silent=True) or {}).get("wallet","")).strip()
+# Minimal admin shell; the public UI links here via the rocket icon.
 
-    with STATE_LOCK:
+ADMIN_HTML = """
 
-        BLOCKED.discard(w)
+<!doctype html><html><head>
 
-        bl = sorted(BLOCKED)
-
-    return jsonify({"ok": True, "blacklist": bl})
-
-
-
-@app.post("/api/admin/transfer")
-
-def admin_transfer():
-
-    if not admin_authed():
-
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-
-    body = request.get_json(silent=True) or {}
-
-    to = str(body.get("to","")).strip()
-
-    amt = float(body.get("amount_axo", 0))
-
-    if not (to and to.startswith("r")):
-
-        return jsonify({"ok": False, "error": "Invalid r-address"}), 400
-
-    if amt <= 0:
-
-        return jsonify({"ok": False, "error": "Amount must be > 0"}), 400
-
-    if to in BLOCKED:
-
-        return jsonify({"ok": False, "error": "Wallet is blacklisted"}), 403
-
-    # Stub success (no on-ledger send here)
-
-    return jsonify({"ok": True, "txid": "demo-transfer", "to": to, "amount_axo": amt, "real": False})
-
-
-
-# ------------------ Signup Flow ------------------
-
-@app.post("/api/signup/prepare")
-
-def signup_prepare():
-
-    data = request.get_json(silent=True) or {}
-
-    wallet = (data.get("address") or "").strip()
-
-    if not (wallet and wallet.startswith("r") and len(wallet) > 20):
-
-        return jsonify({"ok": False, "error": "Invalid XRPL address"}), 400
-
-    with STATE_LOCK:
-
-        if wallet in BLOCKED:
-
-            return jsonify({"ok": False, "error": "Wallet blocked"}), 403
-
-    session["wallet"] = wallet
-
-    session["ref"] = (data.get("ref") or "").strip()
-
-    return jsonify({"ok": True})
-
-
-
-@app.post("/api/signup/claim")
-
-def signup_claim():
-
-    body = request.get_json(silent=True) or {}
-
-    wallet = (body.get("address") or session.get("wallet") or "").strip()
-
-    ref    = (body.get("ref") or session.get("ref") or "").strip()
-
-    if not (wallet and wallet.startswith("r")):
-
-        return jsonify({"ok": False, "error": "address required"}), 400
-
-
-
-    with STATE_LOCK:
-
-        if wallet in BLOCKED:
-
-            return jsonify({"ok": False, "error": "Wallet blocked"}), 403
-
-        if wallet in CLAIMED:
-
-            return jsonify({"ok": False, "error": "Signup bonus already claimed"}), 409
-
-        bonus = int(SETTINGS["signup_bonus"])
-
-        ref_reward = int(SETTINGS["referral_reward"])
-
-        fee_xrp = float(SETTINGS["fee_xrp"])
-
-        vault = str(SETTINGS["vault_addr"]).strip()
-
-
-
-    if fee_xrp > 0 and not vault:
-
-        return jsonify({"ok": False, "error": "Vault not configured for fee"}), 500
-
-
-
-    with STATE_LOCK:
-
-        CLAIMED.add(wallet)
-
-
-
-    out = {
-
-        "ok": True,
-
-        "awarded_axo": bonus,
-
-        "ref_awarded_axo": 0,
-
-        "fee_xrp": fee_xrp,
-
-        "note": "Demo mode (no on-ledger tx)"
-
-    }
-
-    if ref and ref != wallet and ref.startswith("r") and ref not in BLOCKED and ref_reward > 0:
-
-        out["ref_awarded_axo"] = ref_reward
-
-    return jsonify(out)
-
-
-
-# ------------------ Health & SPA catch-all ------------------
-
-@app.get("/api/hello")
-
-def api_hello():
-
-    return jsonify({"message": "Hello from AXO API"})
-
-
-
-@app.errorhandler(404)
-
-def not_found(_):
-
-    return send_from_directory(STATIC_ROOT, "index.html")
-
-
-
-@app.route("/<path:unused>")
-
-def spa_catchall(unused=None):
-
-    if unused and unused.startswith("api/"):
-
-        return jsonify({"error": "API endpoint not found"}), 404
-
-    return send_from_directory(STATIC_ROOT, "index.html")
-
-
-
-# ------------------ Embedded Admin HTML (now with credentials:'same-origin') ------------------
-
-ADMIN_HTML = r"""
-
-<!doctype html>
-
-<html lang="en">
-
-<head>
-
-<meta charset="utf-8"/>
-
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <title>AXO Admin</title>
 
 <style>
 
-:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
+body{margin:0;background:#0f172a;color:#e5e7eb;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
-*{box-sizing:border-box}
+.wrap{max-width:1000px;margin:40px auto;padding:20px}
 
-body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:22px}
 
-.wrap{max-width:1100px;margin:40px auto;padding:20px}
-
-.card{background:var(--panel);border-radius:14px;padding:22px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
-
-h1{margin:0 0 16px;font-size:28px;letter-spacing:.4px}
-
-h2{margin:24px 0 8px;font-size:16px;color:#cbd5e1}
+h1{margin:0 0 16px;font-size:24px}
 
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 
-label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
+label{display:block;font-size:13px;color:#9ca3af;margin:0 0 6px}
 
-input,select,textarea{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:#e5e7eb;outline:none}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:#e5e7eb}
 
-.row{margin:10px 0}
+.actions{display:flex;gap:12px;justify-content:flex-end;margin-top:16px}
 
-.actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
-
-button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
+button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
 
 button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
 
 .pin{max-width:420px;margin:80px auto 0}
 
-.pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
-
 .hint{color:#94a3b8;font-size:13px;margin-top:6px}
 
 .ok{color:#10b981}.err{color:#f87171}
 
-.tag{padding:6px 10px;border-radius:100px;border:1px solid #374151;background:#0b1220;margin:4px 6px 0 0;display:inline-block}
-
-.kv{display:grid;grid-template-columns:220px 1fr;gap:10px;align-items:center}
-
 </style>
 
-</head>
-
-<body>
-
-<div class="wrap">
-
-  <!-- PIN -->
+</head><body><div class="wrap">
 
   <div id="pinCard" class="card pin" style="display:none">
 
-    <h2>Enter Admin PIN</h2>
+    <h1>Enter Admin PIN</h1>
 
-    <div class="row">
-
-      <label for="pin">PIN</label>
-
-      <input id="pin" type="password" placeholder="••••••"/>
-
-    </div>
+    <label>PIN</label><input id="pin" type="password" placeholder="••••••"/>
 
     <div class="actions">
 
@@ -576,75 +376,43 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 
 
-  <!-- Admin -->
-
   <div id="adminCard" class="card" style="display:none">
 
     <h1>AXO Admin</h1>
 
-
-
-    <h2>Incentives</h2>
-
     <div class="grid">
 
-      <div><label>Signup Bonus (AXO)</label><input id="signup_bonus" type="number" min="0" step="1"></div>
+      <div><label>Signup Bonus (AXO)</label><input id="signup_bonus" type="number"></div>
 
-      <div><label>Referral Reward (AXO)</label><input id="referral_reward" type="number" min="0" step="1"></div>
+      <div><label>Referral Reward (AXO)</label><input id="referral_reward" type="number"></div>
 
-      <div><label>AXO Static Price (USD)</label><input id="axo_price_usd" type="number" min="0" step="0.0001"></div>
+      <div><label>Require TrustLine</label><select id="require_trustline"><option>true</option><option>false</option></select></div>
 
     </div>
 
-
-
-    <h2>Fees & Vault</h2>
+    <h3>Pricing & Flow</h3>
 
     <div class="grid">
 
-      <div><label>Flat Fee (XRP) per claim</label><input id="fee_xrp" type="number" min="0" step="0.000001"></div>
+      <div><label>AXO Price (USD)</label><input id="axo_price_usd" type="number" step="0.0001"></div>
 
-      <div class="kv"><label>Vault Address (r‑...)</label><input id="vault_addr" placeholder="r........"/></div>
+      <div><label>Buy Enabled</label><select id="buy_enabled"><option>true</option><option>false</option></select></div>
+
+      <div><label>Quick Signup</label><select id="quick_signup_enabled"><option>false</option><option>true</option></select></div>
+
+    </div>
+
+    <h3>Fees & Vault</h3>
+
+    <div class="grid">
+
+      <div><label>Flat Fee (XRP)</label><input id="fee_xrp" type="number" step="0.000001"></div>
+
+      <div><label>Vault Address</label><input id="vault_addr" placeholder="r..."></div>
 
       <div></div>
 
     </div>
-
-    <div class="hint">XRPL network fee comes out first from the flat fee; remainder goes to the vault. XRP never leaves the vault. AXO payouts are sent from the vault.</div>
-
-
-
-    <h2>Blacklist</h2>
-
-    <div class="kv"><label>Wallet (r‑…)</label><input id="bl_addr" placeholder="r..." /></div>
-
-    <div class="actions" style="justify-content:flex-start">
-
-      <button onclick="blAdd()">Add</button>
-
-      <button onclick="blRemove()">Remove</button>
-
-    </div>
-
-    <div id="bl_list"></div>
-
-
-
-    <h2>Manual Transfer (AXO → wallet)</h2>
-
-    <div class="grid">
-
-      <div><label>Recipient (r‑…)</label><input id="tx_to" placeholder="r..." /></div>
-
-      <div><label>Amount (AXO)</label><input id="tx_amt" type="number" min="0" step="0.000001"/></div>
-
-      <div class="actions" style="justify-content:flex-start"><button class="primary" onclick="manualSend()">Send</button></div>
-
-    </div>
-
-    <div id="tx_msg" class="hint"></div>
-
-
 
     <div class="actions">
 
@@ -660,103 +428,31 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 </div>
 
-
-
 <script>
 
-// always include cookies for same-site requests
+function goHome(){ location.href='/' }
 
-const WITH_CRED = { credentials: 'same-origin' };
+async function isAuthed(){ const r=await fetch('/api/admin/config'); return r.status===200 }
 
-
-
-function goHome(){ location.href = '/'; }
-
-
-
-async function isAuthed(){
-
-  const r = await fetch('/api/admin/config', WITH_CRED);
-
-  return r.status === 200;
-
-}
-
-
-
-async function show(){
-
-  if(await isAuthed()){ await load(); document.getElementById('adminCard').style.display=''; }
-
-  else { document.getElementById('pinCard').style.display=''; }
-
-}
-
-
+async function show(){ if(await isAuthed()){ await load(); adminCard.style.display=''; } else { pinCard.style.display=''; }}
 
 async function login(){
 
-  const pin = document.getElementById('pin').value.trim();
+  const pin=document.getElementById('pin').value.trim();
 
-  const r = await fetch('/api/admin/login', {
+  const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
 
-    method:'POST',
-
-    headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify({pin}),
-
-    ...WITH_CRED
-
-  });
-
-  const m = document.getElementById('pinMsg');
+  const m=document.getElementById('pinMsg');
 
   if(r.ok){ m.textContent='Unlocked.'; m.className='hint ok'; location.reload(); }
 
-  else   { m.textContent='Invalid PIN.'; m.className='hint err'; }
+  else{ m.textContent='Invalid PIN.'; m.className='hint err'; }
 
 }
 
-
-
-async function logout(){
-
-  await fetch('/api/admin/logout', { method:'POST', ...WITH_CRED });
-
-}
+async function logout(){ await fetch('/api/admin/logout',{method:'POST'}) }
 
 async function logoutAndHome(){ await logout(); goHome(); }
-
-
-
-async function load(){
-
-  const r = await fetch('/api/admin/config', WITH_CRED); if(!r.ok) return;
-
-  const j = await r.json(); const s=j.data||{}; const bl=j.blacklist||[];
-
-  for(const k of ['signup_bonus','referral_reward','axo_price_usd','fee_xrp','vault_addr']){
-
-    const el=document.getElementById(k); if(el) el.value = s[k] ?? (el.type==='number'?0:'');
-
-  }
-
-  renderBL(bl);
-
-}
-
-
-
-function renderBL(list){
-
-  const c=document.getElementById('bl_list'); c.innerHTML='';
-
-  list.forEach(w=>{ const t=document.createElement('span'); t.className='tag'; t.textContent=w; c.appendChild(t); });
-
-}
-
-
 
 async function saveAndExit(){
 
@@ -768,35 +464,47 @@ async function saveAndExit(){
 
 }
 
+async function load(){
 
+  const r=await fetch('/api/admin/config'); if(!r.ok) return;
+
+  const s=(await r.json()).data||{};
+
+  for(const k of ['signup_bonus','referral_reward','require_trustline','axo_price_usd','buy_enabled','quick_signup_enabled','fee_xrp','vault_addr']){
+
+    const el=document.getElementById(k); if(!el) continue;
+
+    if(el.tagName==='SELECT') el.value=String(s[k]); else el.value=s[k]??'';
+
+  }
+
+}
 
 async function save(silent=false){
 
+  const v=id=>document.getElementById(id).value;
+
   const body={
 
-    signup_bonus:Number(document.getElementById('signup_bonus').value||0),
+    signup_bonus:Number(v('signup_bonus')||0),
 
-    referral_reward:Number(document.getElementById('referral_reward').value||0),
+    referral_reward:Number(v('referral_reward')||0),
 
-    axo_price_usd:Number(document.getElementById('axo_price_usd').value||0.01),
+    require_trustline:(v('require_trustline')==='true'),
 
-    fee_xrp:Number(document.getElementById('fee_xrp').value||0),
+    axo_price_usd:Number(v('axo_price_usd')||0.01),
 
-    vault_addr:String(document.getElementById('vault_addr').value||'').trim()
+    buy_enabled:(v('buy_enabled')==='true'),
+
+    quick_signup_enabled:(v('quick_signup_enabled')==='true'),
+
+    fee_xrp:Number(v('fee_xrp')||0),
+
+    vault_addr:v('vault_addr').trim()
 
   };
 
-  const r=await fetch('/api/admin/config',{
-
-    method:'POST',
-
-    headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify(body),
-
-    ...WITH_CRED
-
-  });
+  const r=await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 
   if(silent) return r.ok;
 
@@ -806,50 +514,52 @@ async function save(silent=false){
 
 }
 
-
-
-async function blAdd(){
-
-  const w=document.getElementById('bl_addr').value.trim(); if(!w) return;
-
-  const r=await fetch('/api/admin/blacklist/add',{
-
-    method:'POST', headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify({wallet:w}), ...WITH_CRED
-
-  });
-
-  const j=await r.json(); if(j.ok) renderBL(j.blacklist);
-
-}
-
-
-
-async function blRemove(){
-
-  const w=document.getElementById('bl_addr').value.trim(); if(!w) return;
-
-  const r=await fetch('/api/admin/blacklist/remove',{
-
-    method:'POST', headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify({wallet:w}), ...WITH_CRED
-
-  });
-
-  const j=await r.json(); if(j.ok) renderBL(j.blacklist);
-
-}
-
-
-
-show();
+const pinCard=document.getElementById('pinCard'), adminCard=document.getElementById('adminCard'); show();
 
 </script>
 
-</body>
-
-</html>
+</body></html>
 
 """
+
+
+
+@app.route("/admin")
+
+def admin_page():
+
+    return ADMIN_HTML
+
+
+
+
+
+# ----------- SPA fallback -----
+
+@app.errorhandler(404)
+
+def spa_404(_):
+
+    # Send index.html so client-side routes work
+
+    return send_from_directory(STATIC_ROOT, "index.html")
+
+
+
+
+
+# ----------- Health ----------
+
+@app.route("/healthz")
+
+def health():
+
+    return "ok", 200
+
+
+
+
+
+# ----------- Entrypoint -------
+
+# (gunicorn will import "app" from this file)
