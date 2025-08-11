@@ -8,55 +8,73 @@
 
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-<title>AXO Admin</title>
+<title>AXO Utility Hub</title>
 
 <style>
 
-:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
+:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#2563eb;--ok:#10b981;--err:#ef4444}
 
 *{box-sizing:border-box}
 
-body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+html,body{height:100%}
 
-.wrap{max-width:1100px;margin:40px auto;padding:20px}
+body{margin:0;background:radial-gradient(1400px 700px at 50% -10%,#33415522,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;display:flex;min-height:100%}
 
-.card{background:var(--panel);border-radius:14px;padding:22px;box-shadow:0 12px 30px #0007;border:1px solid #1f2937}
+.container{max-width:980px;margin:auto;padding:24px;width:100%}
 
-h1{margin:0 0 16px;font-size:28px;letter-spacing:.4px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 
-h2{margin:24px 0 8px;font-size:16px;color:#cbd5e1}
+.badge{font-size:12px;color:#cbd5e1;border:1px solid #374151;padding:6px 10px;border-radius:999px;background:#0b1220}
 
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.title{display:flex;flex-direction:column;align-items:center;margin:20px 0 24px}
 
-label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
+.title h1{margin:0;font-size:40px;letter-spacing:.4px}
 
-input,select,textarea{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
+.title p{margin:10px 0 0;color:#cbd5e1}
 
-textarea{min-height:82px;resize:vertical}
+.card{background:var(--panel);border:1px solid #1f2937;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 12px 30px #0006}
 
-.row{margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 
-.actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 
-button{padding:10px 16px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
+.label{font-size:12px;color:var(--muted);margin-bottom:6px}
+
+input,button{font:inherit}
+
+input{width:100%;padding:12px 14px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:var(--text);outline:none}
+
+button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
 
 button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:white}
 
-.pin{max-width:420px;margin:80px auto 0}
+.row{display:flex;gap:10px;align-items:center}
 
-.pin h2{font-weight:600;font-size:22px;margin:0 0 10px}
-
-.hint{color:#94a3b8;font-size:13px;margin-top:6px}
-
-.ok{color:#10b981}.err{color:#f87171}
-
-.kv{display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:center}
-
-.kv input{width:100%}
-
-/* small helpers */
+.center{text-align:center}
 
 .small{font-size:12px;color:#9ca3af}
+
+.kv{display:grid;grid-template-columns:200px 1fr;gap:8px}
+
+.ok{color:var(--ok)}.err{color:var(--err)}
+
+/* light mode */
+
+.light body{background:white;color:#0b1220}
+
+.light .card{background:#ffffff;border-color:#e5e7eb;box-shadow:0 8px 22px #0001}
+
+.light input{background:#f8fafc;border-color:#e5e7eb;color:#0b1220}
+
+.light .badge{background:#eef2ff;color:#334155;border-color:#c7d2fe}
+
+.toggle{display:inline-flex;gap:8px;align-items:center}
+
+.toggle input{width:auto}
+
+a.rocket{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;text-decoration:none}
+
+a.rocket svg{width:20px;height:20px;fill:#cbd5e1}
 
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
 
@@ -66,53 +84,103 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 <body>
 
-<div class="wrap">
+<div class="container">
 
-  <!-- PIN Card -->
 
-  <div id="pinCard" class="card pin" style="display:none">
 
-    <h2>Enter Admin PIN</h2>
+  <!-- Top bar -->
 
-    <div class="row">
+  <div class="topbar">
 
-      <label for="pin">PIN</label>
+    <label class="toggle">
 
-      <input id="pin" type="password" placeholder="••••••"/>
+      <input id="modeToggle" type="checkbox" />
 
-    </div>
+      <span>Light mode</span>
 
-    <div class="actions">
+    </label>
 
-      <button onclick="login()">Unlock</button>
+    <span class="badge mono">GMODE Bv3</span>
 
-      <button onclick="goHome()">Back</button>
+    <a class="rocket" href="/admin" title="Admin">
 
-    </div>
+      <svg viewBox="0 0 24 24"><path d="M12 2c3.5 0 6.5 2 8 5-3 .5-5.5 2.5-7 5-.5-1.5-1.5-3-3-3 .5-2 1-4 2-7zM6 14c1.5-1.5 3-2.5 4.5-3 .5 1.5 1.5 2.5 3 3-1 1.5-2.5 3-4 4.5-2-.5-3.5-1.5-3.5-4.5zM4 20c1.5 0 2.5-.5 3.5-1.5-.5 1.5-1.5 2.5-3.5 3.5-1-2-1-2-0-2z"/></svg>
 
-    <div id="pinMsg" class="hint"></div>
+    </a>
 
   </div>
 
 
 
-  <!-- Admin Card -->
+  <!-- Title -->
 
-  <div id="adminCard" class="card" style="display:none">
+  <div class="title">
 
-    <h1>AXO Admin</h1>
+    <h1>AXO</h1>
+
+    <p>Sign‑up, Referral & XRP → AXO utility hub</p>
+
+  </div>
 
 
 
-    <!-- Live Market (NEW, auto‑refresh every 30s) -->
+  <!-- Steps -->
 
-    <h2>Live Market</h2>
+  <div class="card">
 
-    <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+    <h3 class="center" style="margin:6px 0 14px">Quick Start</h3>
+
+    <div class="grid">
 
       <div>
 
-        <label>XRP Price (USD)</label>
+        <div class="label">1) Your XRPL wallet (r‑address)</div>
+
+        <input id="wallet" placeholder="r................................" />
+
+      </div>
+
+      <div>
+
+        <div class="label">Optional: Referrer wallet (r‑address)</div>
+
+        <input id="ref" placeholder="r................................" />
+
+      </div>
+
+      <div class="row">
+
+        <button id="btnPrepare" class="primary">Prepare Signup</button>
+
+        <span id="prepMsg" class="small"></span>
+
+      </div>
+
+      <div class="row">
+
+        <button id="btnClaim" class="">Claim 1000 AXO</button>
+
+        <span id="claimMsg" class="small"></span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- Live Market -->
+
+  <div class="card">
+
+    <h3 style="margin:6px 0 14px">Live Market Data</h3>
+
+    <div class="grid-3">
+
+      <div>
+
+        <div class="label">XRP Price (USD)</div>
 
         <div id="xrpPrice" class="mono">$—</div>
 
@@ -120,7 +188,7 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
       <div>
 
-        <label>AXO Price (USD, static)</label>
+        <div class="label">AXO Price (USD, static)</div>
 
         <div id="axoPrice" class="mono">$0.01</div>
 
@@ -128,7 +196,7 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
       <div>
 
-        <label>1 XRP =</label>
+        <div class="label">1 XRP =</div>
 
         <div id="ratio" class="mono">— AXO</div>
 
@@ -136,129 +204,51 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
     </div>
 
-    <div class="small" style="margin-top:6px">Source: <span id="marketSource">—</span> · Updated <span id="marketTime">—</span></div>
-
-
-
-    <!-- Incentives -->
-
-    <h2>Incentives</h2>
-
-    <div class="grid">
-
-      <div><label>Signup Bonus (AXO)</label><input id="signup_bonus" type="number" min="0" step="1"></div>
-
-      <div><label>Referral Reward (AXO)</label><input id="referral_reward" type="number" min="0" step="1"></div>
-
-      <div>
-
-        <label>Require TrustLine</label>
-
-        <select id="require_trustline"><option>true</option><option>false</option></select>
-
-      </div>
-
-    </div>
-
-
-
-    <!-- Pricing -->
-
-    <h2>Pricing & Flow</h2>
-
-    <div class="grid">
-
-      <div><label>AXO Price (USD, static)</label><input id="axo_price_usd" type="number" min="0" step="0.0001"></div>
-
-      <div><label>Buy Flow Enabled</label><select id="buy_enabled"><option>true</option><option>false</option></select></div>
-
-      <div><label>Quick Signup Enabled</label><select id="quick_signup_enabled"><option>false</option><option>true</option></select></div>
-
-    </div>
-
-
-
-    <!-- Fees / Vault -->
-
-    <h2>Fees & Vault</h2>
-
-    <div class="grid">
-
-      <div><label>Flat Fee (XRP) per claim</label><input id="fee_xrp" type="number" min="0" step="0.000001"></div>
-
-      <div class="kv"><label>Vault Address (r-...)</label><input id="vault_addr" placeholder="r........"/></div>
-
-      <div></div>
-
-    </div>
-
-
-
-    <!-- Abuse & Limits -->
-
-    <h2>Abuse & Limits</h2>
-
-    <div class="grid">
-
-      <div><label>Daily Cap (AXO)</label><input id="daily_cap_axo" type="number" min="0" step="1"></div>
-
-      <div><label>Max Claims / Wallet</label><input id="max_claims_per_wallet" type="number" min="1" step="1"></div>
-
-      <div><label>Claims / Hour (rate‑limit)</label><input id="rate_limit_claims_per_hour" type="number" min="1" step="1"></div>
-
-    </div>
-
-    <div class="grid" style="margin-top:10px">
-
-      <div class="row">
-
-        <label>Whitelist (comma r-...)</label>
-
-        <textarea id="whitelist_addresses" placeholder="r...., r...."></textarea>
-
-      </div>
-
-      <div class="row">
-
-        <label>Blacklist (comma r-...)</label>
-
-        <textarea id="blacklist_addresses" placeholder="r...., r...."></textarea>
-
-      </div>
-
-      <div>
-
-        <label>Airdrop Paused</label>
-
-        <select id="airdrop_paused"><option>false</option><option>true</option></select>
-
-        <div class="row"></div>
-
-        <label>Maintenance Mode</label>
-
-        <select id="maintenance_mode"><option>false</option><option>true</option></select>
-
-      </div>
-
-    </div>
-
-
-
-    <div class="actions">
-
-      <!-- Close will log out and send you home so next entry asks for PIN -->
-
-      <button onclick="logoutAndHome()">Close</button>
-
-      <!-- Save will save, then log out and send you home -->
-
-      <button class="primary" onclick="saveAndExit()">Save</button>
-
-    </div>
-
-    <div id="msg" class="hint"></div>
+    <div class="small" style="margin-top:10px">Source: <span id="marketSource">coingecko</span> · Updated <span id="marketTime">—</span></div>
 
   </div>
+
+
+
+  <!-- Buy AXO (stub UI) -->
+
+  <div class="card">
+
+    <h3 style="margin:6px 0 14px">Buy AXO with XRP (optional)</h3>
+
+    <div class="grid">
+
+      <div>
+
+        <div class="label">Your wallet (r‑address)</div>
+
+        <input id="buyWallet" placeholder="r................................"/>
+
+      </div>
+
+      <div>
+
+        <div class="label">Amount (XRP)</div>
+
+        <input id="buyXrp" type="number" min="0" step="0.000001" placeholder="0.0"/>
+
+      </div>
+
+      <div class="row">
+
+        <button id="btnQuote">Get Quote</button>
+
+        <span id="buyMsg" class="small"></span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="center small" style="margin-top:8px;opacity:.8">© AXO</div>
 
 </div>
 
@@ -266,209 +256,37 @@ button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#
 
 <script>
 
-function goHome(){ location.href = '/'; }
+// --- UI: light/dark toggle ---
 
+const root = document.documentElement;
 
+const modeToggle = document.getElementById('modeToggle');
 
-async function isAuthed(){
+(function initTheme(){
 
-  const r = await fetch('/api/admin/config');
+  const saved = localStorage.getItem('axo_theme') || 'dark';
 
-  return r.status === 200;
+  if(saved === 'light'){ document.documentElement.classList.add('light'); modeToggle.checked = true; }
 
-}
+})();
 
+modeToggle.addEventListener('change', () => {
 
+  if(modeToggle.checked){ document.documentElement.classList.add('light'); localStorage.setItem('axo_theme','light'); }
 
-async function show(){
+  else { document.documentElement.classList.remove('light'); localStorage.setItem('axo_theme','dark'); }
 
-  if(await isAuthed()){ await load(); adminCard.style.display=''; }
+});
 
-  else { pinCard.style.display=''; }
 
-}
 
+// --- Helper ---
 
+const $ = (id) => document.getElementById(id);
 
-async function login(){
 
-  const pin = document.getElementById('pin').value.trim();
 
-  const r = await fetch('/api/admin/login',{
-
-    method:'POST', headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify({pin})
-
-  });
-
-  const m = document.getElementById('pinMsg');
-
-  if(r.ok){ m.textContent='Unlocked.'; m.className='hint ok'; location.reload(); }
-
-  else   { m.textContent='Invalid PIN.'; m.className='hint err'; }
-
-}
-
-
-
-async function logout(){
-
-  // Clears the admin cookie on the server
-
-  await fetch('/api/admin/logout',{method:'POST'});
-
-}
-
-
-
-async function logoutAndHome(){
-
-  await logout();
-
-  goHome();
-
-}
-
-
-
-async function saveAndExit(){
-
-  const ok = await save(true);   // true = silent (no inline message)
-
-  // Regardless of save success, we log out to enforce re‑prompt next time.
-
-  await logout();
-
-  goHome();
-
-}
-
-
-
-async function load(){
-
-  // fill admin config
-
-  const r = await fetch('/api/admin/config');
-
-  if(!r.ok) return;
-
-  const s = (await r.json()).data || {};
-
-  for (const k of [
-
-    'signup_bonus','referral_reward','require_trustline',
-
-    'axo_price_usd','buy_enabled','quick_signup_enabled',
-
-    'fee_xrp','vault_addr',
-
-    'daily_cap_axo','max_claims_per_wallet','rate_limit_claims_per_hour',
-
-    'whitelist_addresses','blacklist_addresses',
-
-    'airdrop_paused','maintenance_mode'
-
-  ]) {
-
-    const el = document.getElementById(k);
-
-    if(!el) continue;
-
-    if (el.tagName==='SELECT') el.value = String(s[k]);
-
-    else if (el.tagName==='TEXTAREA') el.value = (s[k]||[]).join(', ');
-
-    else el.value = s[k] ?? '';
-
-  }
-
-
-
-  // initial market refresh right after admin loads
-
-  refreshMarket();
-
-}
-
-
-
-async function save(silent=false){
-
-  const body = {};
-
-  const v = id => document.getElementById(id).value;
-
-
-
-  body.signup_bonus = Number(v('signup_bonus')||0);
-
-  body.referral_reward = Number(v('referral_reward')||0);
-
-  body.require_trustline = (v('require_trustline')==='true');
-
-
-
-  body.axo_price_usd = Number(v('axo_price_usd')||0.01);
-
-  body.buy_enabled = (v('buy_enabled')==='true');
-
-  body.quick_signup_enabled = (v('quick_signup_enabled')==='true');
-
-
-
-  body.fee_xrp = Number(v('fee_xrp')||0);
-
-  body.vault_addr = v('vault_addr').trim();
-
-
-
-  body.daily_cap_axo = Number(v('daily_cap_axo')||0);
-
-  body.max_claims_per_wallet = Number(v('max_claims_per_wallet')||1);
-
-  body.rate_limit_claims_per_hour = Number(v('rate_limit_claims_per_hour')||1);
-
-
-
-  body.whitelist_addresses = v('whitelist_addresses');
-
-  body.blacklist_addresses = v('blacklist_addresses');
-
-  body.airdrop_paused = (v('airdrop_paused')==='true');
-
-  body.maintenance_mode = (v('maintenance_mode')==='true');
-
-
-
-  const r = await fetch('/api/admin/config',{
-
-    method:'POST', headers:{'Content-Type':'application/json'},
-
-    body: JSON.stringify(body)
-
-  });
-
-
-
-  if (silent) return r.ok;
-
-
-
-  const el = document.getElementById('msg');
-
-  el.textContent = r.ok ? 'Saved.' : 'Save failed';
-
-  el.className = 'hint ' + (r.ok?'ok':'err');
-
-  return r.ok;
-
-}
-
-
-
-/* ====== Live Market auto-refresh (NEW) ====== */
+// --- Live Market: poll every 30s ---
 
 async function refreshMarket() {
 
@@ -480,8 +298,6 @@ async function refreshMarket() {
 
     const j = await r.json();
 
-    const $ = (id) => document.getElementById(id);
-
     if ($('xrpPrice'))    $('xrpPrice').textContent     = j.xrp_usd ? `$${j.xrp_usd}` : '—';
 
     if ($('axoPrice'))    $('axoPrice').textContent     = j.axo_usd ? `$${j.axo_usd}` : '—';
@@ -492,15 +308,9 @@ async function refreshMarket() {
 
     if ($('marketTime'))  $('marketTime').textContent   = new Date((j.ts||0)*1000).toLocaleTimeString();
 
-  } catch (e) {
-
-    // ignore; try again on next tick
-
-  }
+  } catch(e) { /* ignore; try next tick */ }
 
 }
-
-// run immediately and then every 30 seconds
 
 refreshMarket();
 
@@ -508,13 +318,121 @@ setInterval(refreshMarket, 30_000);
 
 
 
-/* ====== Init ====== */
+// --- Signup flow (demo endpoints already in main.py) ---
 
-const pinCard = document.getElementById('pinCard');
+$('btnPrepare').addEventListener('click', async () => {
 
-const adminCard = document.getElementById('adminCard');
+  const address = ($('wallet').value||'').trim();
 
-show();
+  const ref = ($('ref').value||'').trim();
+
+  $('prepMsg').textContent = '...';
+
+  try{
+
+    const r = await fetch('/api/signup/prepare', {
+
+      method:'POST',
+
+      headers:{'Content-Type':'application/json'},
+
+      body: JSON.stringify({address, ref})
+
+    });
+
+    const j = await r.json();
+
+    $('prepMsg').textContent = r.ok ? 'Ready. Continue to Claim.' : (j.error || 'Error');
+
+    $('prepMsg').className = 'small ' + (r.ok ? 'ok' : 'err');
+
+  }catch(e){
+
+    $('prepMsg').textContent = 'Network error'; $('prepMsg').className='small err';
+
+  }
+
+});
+
+
+
+$('btnClaim').addEventListener('click', async () => {
+
+  const address = ($('wallet').value||'').trim();
+
+  const ref = ($('ref').value||'').trim();
+
+  $('claimMsg').textContent = '...';
+
+  try{
+
+    const r = await fetch('/api/signup/claim', {
+
+      method:'POST',
+
+      headers:{'Content-Type':'application/json'},
+
+      body: JSON.stringify({address, ref})
+
+    });
+
+    const j = await r.json();
+
+    if(r.ok){
+
+      $('claimMsg').textContent = `Claimed ${j.awarded_axo} AXO` + (j.ref_awarded_axo? ` · Referral +${j.ref_awarded_axo} AXO` : '');
+
+      $('claimMsg').className='small ok';
+
+    }else{
+
+      $('claimMsg').textContent = j.error || 'Error'; $('claimMsg').className='small err';
+
+    }
+
+  }catch(e){
+
+    $('claimMsg').textContent = 'Network error'; $('claimMsg').className='small err';
+
+  }
+
+});
+
+
+
+// --- Buy quote (client-only preview; AXO price from /api/market) ---
+
+$('btnQuote').addEventListener('click', async () => {
+
+  $('buyMsg').textContent = '...';
+
+  try{
+
+    const r = await fetch('/api/market', { cache:'no-store' });
+
+    const j = await r.json();
+
+    const xrp = parseFloat(($('buyXrp').value||'0').trim());
+
+    if(!j.xrp_usd || !j.axo_usd || !xrp || xrp<=0){
+
+      $('buyMsg').textContent = 'Enter amount & wait for price...'; $('buyMsg').className='small err'; return;
+
+    }
+
+    // XRP USD value / AXO USD price = AXO received (client preview)
+
+    const axo = (j.xrp_usd * xrp) / j.axo_usd;
+
+    $('buyMsg').textContent = `~ ${Math.floor(axo)} AXO`; $('buyMsg').className='small ok';
+
+  }catch(e){
+
+    $('buyMsg').textContent = 'Price unavailable'; $('buyMsg').className='small err';
+
+  }
+
+});
 
 </script>
 
