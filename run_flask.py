@@ -38,7 +38,7 @@ class FlaskServer:
         signal.signal(signal.SIGINT, self.signal_handler)
         
         logger.info(f"🚀 Starting AXO Flask SPA on 0.0.0.0:{self.port}")
-        logger.info(f"🌐 Public URL: https://workspace-wcurtis1.replit.app")
+        logger.info(f"🌐 Public URL: https://axo-referral-engine.onrender.com")
         
         retry_count = 0
         max_retries = 10
@@ -74,5 +74,21 @@ class FlaskServer:
         logger.info("Flask server shutdown complete")
 
 if __name__ == "__main__":
-    server = FlaskServer()
-    server.start_server()
+
+    port = int(os.environ.get("PORT", 8080))
+
+    logger.info(f"🚀 Starting AXO Flask SPA on 0.0.0.0:{port}")
+
+
+
+    # Print your Render public URL
+
+    public_url = "https://axo-referral-engine.onrender.com"
+
+    print(f"🌐 Public URL: {public_url}")
+
+    logger.info(f"🌐 Public URL: {public_url}")
+
+
+
+    app.run(host="0.0.0.0", port=port)
