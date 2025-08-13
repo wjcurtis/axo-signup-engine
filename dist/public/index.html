@@ -14,9 +14,7 @@
 
 :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#2563eb;--panelBorder:#1f2937}
 
-*{box-sizing:border-box}
-
-html,body{height:100%}
+*{box-sizing:border-box} html,body{height:100%}
 
 body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
@@ -36,7 +34,7 @@ body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,tran
 
 h1{margin:10px 0 4px;font-size:64px;line-height:1;text-align:center}
 
-.sub{margin:0 0 16px;text-align:center;color:var(--muted);font-size:16px;letter-spacing:.12em;font-weight:700}
+.sub{margin:0 0 16px;text-align:center;color:#94a3b8;font-size:16px;letter-spacing:.12em;font-weight:700}
 
 .card{background:var(--panel);border:1px solid var(--panelBorder);border-radius:14px;padding:18px;box-shadow:0 12px 30px #0007}
 
@@ -62,13 +60,31 @@ a{color:#93c5fd}
 
 
 
-/* Light theme adjustments */
+/* Light theme overrides */
 
-.light body,.light{background:#ffffff;color:#111827}
+body.light{--bg:#ffffff;--panel:#f7f7fb;--text:#111827;--muted:#6b7280;--accent:#2563eb}
 
 .light .card{background:#f7f7fb;border-color:#e5e7eb}
 
 .light .row input{background:#ffffff;color:#111827;border-color:#d1d5db}
+
+
+
+/* Theme toggle button (left), Admin button (right) */
+
+.theme-toggle{
+
+  position:fixed;top:12px;left:12px;
+
+  background:var(--panel);color:var(--text);
+
+  border:1px solid var(--muted);padding:8px 12px;border-radius:14px;
+
+  cursor:pointer;font-size:14px;transition:background .3s,color .3s;z-index:9999;
+
+}
+
+.theme-toggle:hover{background:var(--accent);color:#fff}
 
 </style>
 
@@ -76,11 +92,13 @@ a{color:#93c5fd}
 
 <body id="root">
 
-  <!-- Top bar -->
+  <button class="theme-toggle" id="themeBtn" title="Toggle theme">🌗</button>
+
+
 
   <div class="topbar">
 
-    <button class="iconbtn" id="themeBtn" title="Toggle theme">🌗</button>
+    <div></div>
 
     <button class="iconbtn" id="adminBtn" title="Admin">🚀</button>
 
@@ -108,11 +126,9 @@ a{color:#93c5fd}
 
           <button onclick="window.open('https://xumm.app','_blank')">Get XUMM Wallet</button>
 
-          <button onclick="window.open('https://play.google.com/store/apps/details?id=com.xrpllabs.xumm','_blank')">Android</button>
+          <button onclick="window.open('https://play.google.com/store/apps/details?id=com.xrplabs.xumm','_blank')">Android</button>
 
-          <!-- fixed App Store id -->
-
-          <button onclick="window.open('https://apps.apple.com/app/xumm/id1493203234','_blank')">iOS</button>
+          <button onclick="window.open('https://apps.apple.com/app/xumm/id1492302343','_blank')">iOS</button>
 
         </div>
 
@@ -132,7 +148,7 @@ a{color:#93c5fd}
 
           <input id="addr" placeholder="Enter your XRPL r-address (r...)">
 
-          <button id="verifyBtn">Verify</button>
+          <button>Verify</button>
 
         </div>
 
@@ -148,7 +164,7 @@ a{color:#93c5fd}
 
         <div class="row"><strong>2. Set AXO Trust Line</strong> <span class="note">Required before claiming bonus.</span></div>
 
-        <div class="row" style="margin-top:8px"><button id="openXummBtn">Open in XUMM</button></div>
+        <div class="row" style="margin-top:8px"><button>Open in XUMM</button></div>
 
         <div class="row"><span class="small">Tip: Doing steps 2–4 together saves a second network fee.</span></div>
 
@@ -166,7 +182,7 @@ a{color:#93c5fd}
 
           <input id="ref" placeholder="Referral code (optional — r‑addr)">
 
-          <button class="primary" id="claimBtn">Claim 1000 AXO</button>
+          <button class="primary">Claim 1000 AXO</button>
 
         </div>
 
@@ -182,7 +198,7 @@ a{color:#93c5fd}
 
         <div class="row"><strong>4. Purchase AXO with XRP (optional)</strong></div>
 
-        <div class="row" style="margin-top:8px"><button id="buyBtn">Open Purchase Flow</button></div>
+        <div class="row" style="margin-top:8px"><button>Open Purchase Flow</button></div>
 
         <div class="row"><span class="small">Completing with step 3 may reduce total fees.</span></div>
 
@@ -200,7 +216,7 @@ a{color:#93c5fd}
 
           <input id="subEmail" type="email" placeholder="you@example.com">
 
-          <button id="subBtn">Subscribe</button>
+          <button onclick="subscribe()">Subscribe</button>
 
         </div>
 
@@ -238,113 +254,99 @@ a{color:#93c5fd}
 
 <script>
 
-(function(){
+// Theme toggle + persistence
 
-  // Theme toggle
+const root = document.getElementById('root');
 
-  const root = document.getElementById('root');
+const themeBtn = document.getElementById('themeBtn');
 
-  const themeBtn = document.getElementById('themeBtn');
+(function initTheme(){
 
   const saved = localStorage.getItem('theme');
 
   if(saved === 'light'){ root.classList.add('light'); }
 
-  themeBtn.onclick = () => {
-
-    root.classList.toggle('light');
-
-    localStorage.setItem('theme', root.classList.contains('light') ? 'light' : 'dark');
-
-  };
-
-
-
-  // Admin button
-
-  document.getElementById('adminBtn').onclick = () => { location.href = '/admin'; };
-
-
-
-  // (Simple front-end gating placeholders)
-
-  let verified=false, trustline=false;
-
-  document.getElementById('verifyBtn').onclick = () => { verified = !!document.getElementById('addr').value.trim(); };
-
-  document.getElementById('openXummBtn').onclick = () => { if(verified){ trustline=true; window.open('https://xumm.app','_blank'); } };
-
-  document.getElementById('claimBtn').onclick = () => { if(!verified||!trustline){ alert('Please complete steps 1 and 2 first.'); } };
-
-
-
-  // Subscribe
-
-  document.getElementById('subBtn').onclick = async () => {
-
-    const el = document.getElementById('subEmail');
-
-    const msg = document.getElementById('subMsg');
-
-    msg.textContent = 'Sending...';
-
-    try{
-
-      const r = await fetch('/api/subscribe', {
-
-        method:'POST',
-
-        headers:{'Content-Type':'application/json'},
-
-        body: JSON.stringify({email: el.value.trim()})
-
-      });
-
-      const j = await r.json();
-
-      msg.textContent = j.ok ? 'Thanks! Check your inbox.' : ('Error: ' + (j.error||'unknown'));
-
-    }catch(e){ msg.textContent = 'Network error'; }
-
-  };
-
-
-
-  // Market data refresher
-
-  async function refreshMarket(){
-
-    try{
-
-      const r = await fetch('/api/market', {cache:'no-store'});
-
-      const j = await r.json();
-
-      const axo = Number(j.axo_usd || 0).toFixed(4);
-
-      const xrp = Number(j.xrp_usd || 0).toFixed(4);
-
-      const rate = Number(j.axo_per_xrp || 0).toFixed(2);
-
-      const ts = new Date((j.t||0)*1000).toLocaleTimeString();
-
-      document.getElementById('m_axo').textContent = `AXO Price (USD): ${axo}`;
-
-      document.getElementById('m_xrp').textContent = `XRP Price (USD): ${xrp}`;
-
-      document.getElementById('m_rate').textContent = `1 XRP = ${rate} AXO`;
-
-      document.getElementById('m_src').textContent  = `source: ${j.source} • ${ts}`;
-
-    }catch(e){}
-
-    setTimeout(refreshMarket, 60000);
-
-  }
-
-  refreshMarket();
-
 })();
+
+themeBtn.onclick = () => {
+
+  root.classList.toggle('light');
+
+  localStorage.setItem('theme', root.classList.contains('light') ? 'light' : 'dark');
+
+};
+
+
+
+// Admin button
+
+document.getElementById('adminBtn').onclick = () => { location.href = '/admin'; };
+
+
+
+// Market refresher
+
+async function refreshMarket(){
+
+  try{
+
+    const r = await fetch('/api/market',{cache:'no-store'});
+
+    const j = await r.json();
+
+    const axo = Number(j.axo_usd||0).toFixed(4);
+
+    const xrp = Number(j.xrp_usd||0).toFixed(4);
+
+    const rate = Number(j.axo_per_xrp||0).toFixed(2);
+
+    const ts = new Date((j.t||0)*1000).toLocaleTimeString();
+
+    document.getElementById('m_axo').textContent = `AXO Price (USD): ${axo}`;
+
+    document.getElementById('m_xrp').textContent = `XRP Price (USD): ${xrp}`;
+
+    document.getElementById('m_rate').textContent = `1 XRP = ${rate} AXO`;
+
+    document.getElementById('m_src').textContent  = `source: ${j.source} • ${ts}`;
+
+  }catch(e){}
+
+  setTimeout(refreshMarket, 60000);
+
+}
+
+refreshMarket();
+
+
+
+// Email subscribe
+
+async function subscribe(){
+
+  const el = document.getElementById('subEmail');
+
+  const msg = document.getElementById('subMsg');
+
+  msg.textContent = 'Sending...';
+
+  try{
+
+    const r = await fetch('/api/subscribe', {
+
+      method:'POST', headers:{'Content-Type':'application/json'},
+
+      body: JSON.stringify({email: el.value.trim()})
+
+    });
+
+    const j = await r.json();
+
+    msg.textContent = j.ok ? 'Thanks! Check your inbox.' : ('Error: ' + (j.error||'unknown'));
+
+  }catch(e){ msg.textContent = 'Network error'; }
+
+}
 
 </script>
 
