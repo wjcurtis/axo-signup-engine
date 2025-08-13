@@ -1,18 +1,38 @@
-# main.py — AXO Referral Engine (stable, cached XRP updater)
+# main.py — AXO Referral Engine (static homepage + APIs + Admin page)
+
+# ------------------------------------------------------------------
+
+# - Serves UI from:   dist/public/index.html
+
+# - Static assets:    /assets/<file>   -> dist/public/assets/<file>
+
+# - Public APIs:      /api/market, /api/subscribe
+
+# - Admin APIs:       /api/admin/*  (+ Admin UI at /admin)
+
+# ------------------------------------------------------------------
+
+
 
 import os, time, json, functools, threading
 
 from typing import Any, Dict, Tuple, Optional
 
-
-
 from pathlib import Path
+
+
+
+import requests
 
 from dotenv import load_dotenv
 
-from flask import Flask, request, jsonify, session, render_template_string
+from flask import (
 
-import requests
+    Flask, request, jsonify, session,
+
+    send_from_directory, render_template_string
+
+)
 
 
 
@@ -20,23 +40,21 @@ import requests
 
 BASE_DIR = Path(__file__).resolve().parent
 
-load_dotenv(BASE_DIR / ".env")   # loads ADMIN_PIN, WALLET_SEED, etc.
+load_dotenv(BASE_DIR / ".env")  # loads ADMIN_PIN, WALLET_SEED, etc.
 
 
 
 app = Flask(__name__)
 
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-me-please")
+app.secret_key   = os.environ.get("FLASK_SECRET_KEY", "change-me-please")
 
+ADMIN_PIN        = os.environ.get("ADMIN_PIN", "")
 
+AXO_PRICE_USD    = float(os.environ.get("AXO_PRICE", "0.01"))
 
-ADMIN_PIN       = os.environ.get("ADMIN_PIN", "")
+XRP_VAULT_ADDR   = os.environ.get("XRP_VAULT_ADDR", "")
 
-AXO_PRICE_USD   = float(os.environ.get("AXO_PRICE", "0.01"))
-
-XRP_VAULT_ADDR  = os.environ.get("XRP_VAULT_ADDR", "")
-
-WALLET_SEED     = os.environ.get("WALLET_SEED", "")
+WALLET_SEED      = os.environ.get("WALLET_SEED", "")
 
 
 
@@ -172,15 +190,7 @@ def _price_loop(interval_sec: int = 120) -> None:
 
 
 
-def start_price_updater() -> None:
-
-    t = threading.Thread(target=_price_loop, kwargs={"interval_sec": 120}, daemon=True)
-
-    t.start()
-
-
-
-start_price_updater()
+threading.Thread(target=_price_loop, kwargs={"interval_sec": 120}, daemon=True).start()
 
 
 
@@ -230,7 +240,7 @@ def admin_required(fn):
 
 # ---------------- Public API ----------------
 
-@app.route("/api/market")
+@app.get("/api/market")
 
 def api_market():
 
@@ -258,9 +268,33 @@ def api_market():
 
 
 
+@app.post("/api/subscribe")
+
+def subscribe_email():
+
+    try:
+
+        email = (request.get_json(silent=True) or {}).get("email", "").strip()
+
+        if not email:
+
+            return jsonify({"ok": False, "error": "no_email"}), 400
+
+        with open(BASE_DIR / "emails.csv", "a", encoding="utf-8") as f:
+
+            f.write(f"{int(time.time())},{email}\n")
+
+        return jsonify({"ok": True})
+
+    except Exception as e:
+
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+
 # ---------------- Admin API ----------------
 
-@app.route("/api/admin/login", methods=["POST"])
+@app.post("/api/admin/login")
 
 def admin_login():
 
@@ -280,7 +314,7 @@ def admin_login():
 
 
 
-@app.route("/api/admin/logout", methods=["POST"])
+@app.post("/api/admin/logout")
 
 def admin_logout():
 
@@ -290,7 +324,7 @@ def admin_logout():
 
 
 
-@app.route("/api/admin/config", methods=["GET"])
+@app.get("/api/admin/config")
 
 def admin_config():
 
@@ -302,7 +336,7 @@ def admin_config():
 
 
 
-@app.route("/api/admin/config", methods=["POST"])
+@app.post("/api/admin/config")
 
 @admin_required
 
@@ -374,9 +408,9 @@ def admin_config_save():
 
 
 
-# ---------------- Pages (inline HTML) ----------------
+# ---------- Admin page (styled UI) ----------
 
-INDEX_HTML = r"""
+ADMIN_HTML = r"""
 
 <!doctype html>
 
@@ -388,7 +422,7 @@ INDEX_HTML = r"""
 
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-<title>AXO — XRPL Signup & Referral Engine</title>
+<title>AXO • Admin</title>
 
 <style>
 
@@ -396,201 +430,285 @@ INDEX_HTML = r"""
 
 *{box-sizing:border-box} html,body{height:100%}
 
-body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
 
-.light body,.light{background:#ffffff;color:#111827}
+.wrap{max-width:940px;margin:40px auto;padding:0 16px}
 
-.topbar{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:10}
+h1{margin:0 0 16px;font-size:28px}
 
-.iconbtn{border:1px solid #e5e7eb;padding:8px 12px;border-radius:14px;cursor:pointer;background:#ffffff;color:#111827;box-shadow:0 2px 6px #0003}
+.card{background:var(--panel);border:1px solid var(--panelBorder);border-radius:12px;padding:16px}
 
-.iconbtn:hover{transform:translateY(-1px)}
+.row{display:flex;gap:10px;align-items:center;margin:8px 0}
 
-.wrap{max-width:880px;margin:80px auto 40px;padding:0 16px}
+button{padding:8px 12px;border-radius:8px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
 
-h1{margin:10px 0 4px;font-size:64px;line-height:1;text-align:center}
+button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);color:#fff;border-color:#2b50a8}
 
-.sub{margin:0 0 16px;text-align:center;color:#94a3b8;font-size:16px;letter-spacing:.12em;font-weight:700}
+input,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;outline:none}
 
-.card{background:var(--panel);border:1px solid var(--panelBorder);border-radius:14px;padding:18px;box-shadow:0 12px 30px #0007}
+.kv{display:grid;grid-template-columns:260px 1fr;gap:8px;align-items:center;margin:10px 0}
 
-.section{border:1px dashed #2b3344;border-radius:12px;margin:12px 0;padding:14px}
+.note{color:#94a3b8;font-size:12px}
 
-.row{display:flex;gap:10px;align-items:center;justify-content:center}
+.badge{display:inline-block;background:#0b1220;border:1px solid #334155;color:#a5b4fc;border-radius:999px;padding:4px 10px;font-size:12px}
 
-.row input{flex:1;max-width:460px;padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;outline:none}
-
-button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
-
-.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:#fff}
-
-.note{color:#94a3b8;font-size:12px;margin-left:8px}
-
-.kv{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:6px;font-size:12px;color:#a5b4fc}
-
-.center{display:flex;justify-content:center}
-
-.light .card{background:#f7f7fb;border-color:#e5e7eb}
-
-.light .row input{background:#ffffff;color:#111827;border-color:#d1d5db}
+hr{border:0;border-top:1px solid #1f2937;margin:14px 0}
 
 </style>
 
 </head>
 
-<body class="" id="root">
-
-  <div class="topbar">
-
-    <button class="iconbtn" id="themeBtn" title="Toggle theme">🌗</button>
-
-    <button class="iconbtn" id="adminBtn" title="Admin">🚀</button>
-
-  </div>
+<body>
 
   <div class="wrap">
 
-    <h1>AXO</h1>
+    <h1>AXO • Admin</h1>
 
-    <div class="sub"><strong>XRPL Signup & Referral Engine</strong></div>
 
-    <div class="card">
 
-      <div class="section">
+    <div class="card" id="loginCard" style="display:none">
 
-        <div class="row"><strong>1. Connect XUMM Wallet</strong></div>
+      <div class="row"><span class="badge">Login required</span></div>
 
-        <div class="row" style="margin-top:8px">
+      <div class="kv">
 
-          <input id="addr" placeholder="Enter your XRPL r-address (r...)">
+        <label for="pin">Admin PIN</label>
 
-          <button>Verify</button>
+        <input id="pin" type="password" placeholder="Enter ADMIN_PIN"/>
+
+      </div>
+
+      <div class="row">
+
+        <button class="primary" id="loginBtn">Login</button>
+
+      </div>
+
+      <div class="note" id="loginMsg"></div>
+
+    </div>
+
+
+
+    <div class="card" id="panelCard" style="display:none">
+
+      <div class="row" style="justify-content:space-between">
+
+        <div class="badge">Config panel</div>
+
+        <div>
+
+          <button id="refreshBtn">Refresh config</button>
+
+          <button id="logoutBtn">Logout</button>
+
+          <button class="primary" id="saveBtn">Save changes</button>
 
         </div>
 
-        <div class="row"><span class="note">We’ll verify your wallet and prepare your bonus.</span></div>
-
       </div>
 
-      <div class="section">
+      <hr/>
 
-        <div class="row"><strong>2. Set AXO Trust Line</strong> <span class="note">Required before claiming bonus.</span></div>
+      <div class="kv"><label>Signup bonus (AXO)</label><input id="signup_bonus" type="number" step="1"/></div>
 
-        <div class="row" style="margin-top:8px"><button>Open in XUMM</button></div>
+      <div class="kv"><label>Referral reward (AXO)</label><input id="referral_reward" type="number" step="1"/></div>
 
-      </div>
+      <div class="kv"><label>Require trustline?</label><input id="require_trustline" type="checkbox"/></div>
 
-      <div class="section">
+      <div class="kv"><label>AXO price (USD)</label><input id="axo_price_usd" type="number" step="0.0001"/></div>
 
-        <div class="row"><strong>3. Claim Signup Bonus</strong></div>
+      <div class="kv"><label>Enable Buy flow?</label><input id="buy_enabled" type="checkbox"/></div>
 
-        <div class="row" style="margin-top:8px">
+      <div class="kv"><label>Quick signup?</label><input id="quick_signup_enabled" type="checkbox"/></div>
 
-          <input id="ref" placeholder="Referral code (optional — r‑addr)">
+      <div class="kv"><label>Fee (XRP)</label><input id="fee_xrp" type="number" step="0.01"/></div>
 
-          <button class="primary">Claim 1000 AXO</button>
+      <div class="kv"><label>Vault address</label><input id="vault_addr" type="text"/></div>
 
-        </div>
+      <div class="kv"><label>Daily cap (AXO)</label><input id="daily_cap_axo" type="number" step="1"/></div>
 
-        <div class="row"><span class="note">Referral reward: 300 AXO (auto when referral is valid).</span></div>
+      <div class="kv"><label>Max claims / wallet</label><input id="max_claims_per_wallet" type="number" step="1"/></div>
 
-      </div>
+      <div class="kv"><label>Claims / hour limit</label><input id="rate_limit_claims_per_hour" type="number" step="1"/></div>
 
-      <div class="section">
+      <div class="kv"><label>Whitelist (CSV)</label><textarea id="whitelist_addresses" rows="2" placeholder="rXXXX, rYYYY"></textarea></div>
 
-        <div class="row"><strong>4. Purchase AXO with XRP (optional)</strong></div>
+      <div class="kv"><label>Blacklist (CSV)</label><textarea id="blacklist_addresses" rows="2" placeholder="rAAAA, rBBBB"></textarea></div>
 
-        <div class="row" style="margin-top:8px"><button>Open Purchase Flow</button></div>
+      <div class="kv"><label>Airdrop paused?</label><input id="airdrop_paused" type="checkbox"/></div>
 
-      </div>
+      <div class="kv"><label>Maintenance mode?</label><input id="maintenance_mode" type="checkbox"/></div>
 
-      <div class="section">
+      <hr/>
 
-        <div class="row"><strong>Live Market Data</strong></div>
-
-        <div class="row" style="margin-top:8px">
-
-          <div id="m_axo" class="kv">AXO Price (USD): 0.0000</div>
-
-          <div id="m_xrp" class="kv">XRP Price (USD): 0.0000</div>
-
-          <div id="m_rate" class="kv">1 XRP = 0 AXO</div>
-
-        </div>
-
-        <div class="kv" id="m_src">Source • --:--:--</div>
-
-      </div>
+      <div class="note" id="msg"></div>
 
     </div>
 
   </div>
 
+
+
 <script>
 
-(function(){
+async function api(path, opts={}){
 
-  // Theme toggle (button is white by design)
+  const r = await fetch(path, {credentials:'same-origin', headers:{'Content-Type':'application/json'}, ...opts});
 
-  const root = document.getElementById('root');
+  const ct = r.headers.get('content-type')||'';
 
-  const themeBtn = document.getElementById('themeBtn');
+  const body = ct.includes('application/json') ? await r.json() : null;
 
-  themeBtn.onclick = () => {
+  return {ok:r.ok, status:r.status, body};
 
-    root.classList.toggle('light');
+}
 
-    localStorage.setItem('theme', root.classList.contains('light') ? 'light' : 'dark');
+function setVal(id, v){ const el = document.getElementById(id); if(el.type==='checkbox'){ el.checked = !!v; } else { el.value = (v ?? ''); } }
 
-  };
-
-  const saved = localStorage.getItem('theme');
-
-  if(saved === 'light'){ root.classList.add('light'); }
+function getVal(id){ const el = document.getElementById(id); return (el.type==='checkbox') ? el.checked : el.value; }
 
 
 
-  // Admin
+async function loadConfig(){
 
-  document.getElementById('adminBtn').onclick = () => { location.href = '/admin'; };
+  const res = await api('/api/admin/config');
 
+  if(!res.ok){
 
+    document.getElementById('panelCard').style.display='none';
 
-  // Live Market refresher
+    document.getElementById('loginCard').style.display='block';
 
-  async function refreshMarket(){
-
-    try{
-
-      const r = await fetch('/api/market', {cache:'no-store'});
-
-      const j = await r.json();
-
-      const axo = Number(j.axo_usd || 0).toFixed(4);
-
-      const xrp = Number(j.xrp_usd || 0).toFixed(4);
-
-      const rate = Number(j.axo_per_xrp || 0).toFixed(2);
-
-      const ts = new Date((j.t||0)*1000).toLocaleTimeString();
-
-      document.getElementById('m_axo').textContent = `AXO Price (USD): ${axo}`;
-
-      document.getElementById('m_xrp').textContent = `XRP Price (USD): ${xrp}`;
-
-      document.getElementById('m_rate').textContent = `1 XRP = ${rate} AXO`;
-
-      document.getElementById('m_src').textContent  = `source: ${j.source} • ${ts}`;
-
-    }catch(e){}
-
-    setTimeout(refreshMarket, 60000);
+    return;
 
   }
 
-  refreshMarket();
+  const d = res.body.data || {};
 
-})();
+  setVal('signup_bonus', d.signup_bonus);
+
+  setVal('referral_reward', d.referral_reward);
+
+  setVal('require_trustline', d.require_trustline);
+
+  setVal('axo_price_usd', d.axo_price_usd);
+
+  setVal('buy_enabled', d.buy_enabled);
+
+  setVal('quick_signup_enabled', d.quick_signup_enabled);
+
+  setVal('fee_xrp', d.fee_xrp);
+
+  setVal('vault_addr', d.vault_addr);
+
+  setVal('daily_cap_axo', d.daily_cap_axo);
+
+  setVal('max_claims_per_wallet', d.max_claims_per_wallet);
+
+  setVal('rate_limit_claims_per_hour', d.rate_limit_claims_per_hour);
+
+  setVal('whitelist_addresses', (d.whitelist_addresses||[]).join(', '));
+
+  setVal('blacklist_addresses', (d.blacklist_addresses||[]).join(', '));
+
+  setVal('airdrop_paused', d.airdrop_paused);
+
+  setVal('maintenance_mode', d.maintenance_mode);
+
+  document.getElementById('loginCard').style.display='none';
+
+  document.getElementById('panelCard').style.display='block';
+
+}
+
+
+
+async function saveConfig(){
+
+  const body = {
+
+    signup_bonus: Number(getVal('signup_bonus')),
+
+    referral_reward: Number(getVal('referral_reward')),
+
+    require_trustline: getVal('require_trustline'),
+
+    axo_price_usd: Number(getVal('axo_price_usd')),
+
+    buy_enabled: getVal('buy_enabled'),
+
+    quick_signup_enabled: getVal('quick_signup_enabled'),
+
+    fee_xrp: Number(getVal('fee_xrp')),
+
+    vault_addr: getVal('vault_addr').trim(),
+
+    daily_cap_axo: Number(getVal('daily_cap_axo')),
+
+    max_claims_per_wallet: Number(getVal('max_claims_per_wallet')),
+
+    rate_limit_claims_per_hour: Number(getVal('rate_limit_claims_per_hour')),
+
+    whitelist_addresses: getVal('whitelist_addresses').split(',').map(s=>s.trim()).filter(Boolean),
+
+    blacklist_addresses: getVal('blacklist_addresses').split(',').map(s=>s.trim()).filter(Boolean),
+
+    airdrop_paused: getVal('airdrop_paused'),
+
+    maintenance_mode: getVal('maintenance_mode')
+
+  };
+
+  const r = await api('/api/admin/config', {method:'POST', body: JSON.stringify(body)});
+
+  document.getElementById('msg').textContent = r.ok ? 'Saved!' : ('Save failed: ' + (r.body && (r.body.error || JSON.stringify(r.body))));
+
+  if(r.ok) loadConfig();
+
+}
+
+
+
+async function login(){
+
+  const pin = document.getElementById('pin').value.trim();
+
+  if(!pin){ document.getElementById('loginMsg').textContent='Enter PIN'; return; }
+
+  const r = await api('/api/admin/login', {method:'POST', body: JSON.stringify({pin})});
+
+  document.getElementById('loginMsg').textContent = r.ok ? 'OK' : 'Bad PIN';
+
+  if(r.ok) loadConfig();
+
+}
+
+
+
+async function logout(){
+
+  await api('/api/admin/logout', {method:'POST'});
+
+  document.getElementById('panelCard').style.display='none';
+
+  document.getElementById('loginCard').style.display='block';
+
+}
+
+
+
+document.getElementById('refreshBtn')?.addEventListener('click', loadConfig);
+
+document.getElementById('saveBtn')?.addEventListener('click', saveConfig);
+
+document.getElementById('loginBtn')?.addEventListener('click', login);
+
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+
+
+loadConfig();
 
 </script>
 
@@ -602,255 +720,59 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
 
 
-# Minimal admin screen kept as-is; your existing frontend JS calls these endpoints.
+# ---------------- Serve homepage from dist/public ----------------
 
-ADMIN_HTML = r"""
+APP_DIR   = Path(__file__).resolve().parent
 
-<!doctype html>
+PUBLIC_DIR = APP_DIR / "dist" / "public"
 
-<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-<title>AXO Admin</title>
-
-<style>
-
-:root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#2563eb}
-
-body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-
-.wrap{max-width:1000px;margin:40px auto;padding:16px}
-
-.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:18px}
-
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-
-label{font-size:12px;color:#9ca3af;margin-bottom:6px;display:block}
-
-input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e5e7eb}
-
-.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
-
-button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:#101936;color:#cbd5e1;cursor:pointer}
-
-button.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border-color:#2b50a8;color:#fff}
-
-.hint{color:#94a3b8;font-size:12px;margin-top:6px}
-
-.ok{color:#10b981}.err{color:#f87171}
-
-</style></head>
-
-<body>
-
-<div class="wrap">
-
-  <div id="pinCard" class="card" style="display:none">
-
-    <h2>Enter Admin PIN</h2>
-
-    <label>PIN</label>
-
-    <input id="pin" type="password" placeholder="••••••"/>
-
-    <div class="actions">
-
-      <button onclick="login()">Unlock</button>
-
-      <button onclick="location.href='/'">Back</button>
-
-    </div>
-
-    <div id="pinMsg" class="hint"></div>
-
-  </div>
-
-
-
-  <div id="adminCard" class="card" style="display:none">
-
-    <h2>AXO Admin</h2>
-
-    <div class="grid">
-
-      <div><label>Signup Bonus (AXO)</label><input id="signup_bonus" type="number"></div>
-
-      <div><label>Referral Reward (AXO)</label><input id="referral_reward" type="number"></div>
-
-      <div><label>Require TrustLine</label><select id="require_trustline"><option>true</option><option>false</option></select></div>
-
-
-
-      <div><label>AXO Price (USD)</label><input id="axo_price_usd" type="number" step="0.0001"></div>
-
-      <div><label>Buy Flow Enabled</label><select id="buy_enabled"><option>true</option><option>false</option></select></div>
-
-      <div><label>Quick Signup Enabled</label><select id="quick_signup_enabled"><option>false</option><option>true</option></select></div>
-
-
-
-      <div><label>Flat Fee (XRP)</label><input id="fee_xrp" type="number" step="0.000001"></div>
-
-      <div><label>Vault Address</label><input id="vault_addr" placeholder="r..."></div>
-
-      <div></div>
-
-
-
-      <div><label>Daily Cap (AXO)</label><input id="daily_cap_axo" type="number"></div>
-
-      <div><label>Max Claims / Wallet</label><input id="max_claims_per_wallet" type="number"></div>
-
-      <div><label>Claims / Hour</label><input id="rate_limit_claims_per_hour" type="number"></div>
-
-
-
-      <div><label>Whitelist (comma r-...)</label><textarea id="whitelist_addresses"></textarea></div>
-
-      <div><label>Blacklist (comma r-...)</label><textarea id="blacklist_addresses"></textarea></div>
-
-      <div>
-
-        <label>Airdrop Paused</label><select id="airdrop_paused"><option>false</option><option>true</option></select>
-
-        <label style="margin-top:10px;display:block">Maintenance</label><select id="maintenance_mode"><option>false</option><option>true</option></select>
-
-      </div>
-
-    </div>
-
-    <div class="actions">
-
-      <button onclick="logoutAndHome()">Close</button>
-
-      <button class="primary" onclick="saveAndExit()">Save</button>
-
-    </div>
-
-    <div id="msg" class="hint"></div>
-
-  </div>
-
-</div>
-
-<script>
-
-async function isAuthed(){ const r = await fetch('/api/admin/config'); return r.status===200; }
-
-async function show(){ if(await isAuthed()){ await load(); adminCard.style.display=''; } else { pinCard.style.display=''; } }
-
-async function login(){
-
-  const pin = document.getElementById('pin').value.trim();
-
-  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
-
-  const m = document.getElementById('pinMsg');
-
-  if(r.ok){ m.textContent='Unlocked.'; m.className='hint ok'; location.reload(); }
-
-  else     { m.textContent='Invalid PIN.'; m.className='hint err'; }
-
-}
-
-async function logout(){ await fetch('/api/admin/logout',{method:'POST'}); }
-
-async function logoutAndHome(){ await logout(); location.href='/'; }
-
-async function saveAndExit(){ const ok = await save(true); await logout(); location.href='/'; }
-
-
-
-async function load(){
-
-  const r = await fetch('/api/admin/config'); if(!r.ok) return;
-
-  const s = (await r.json()).data || {};
-
-  for (const k of ['signup_bonus','referral_reward','require_trustline','axo_price_usd','buy_enabled','quick_signup_enabled','fee_xrp','vault_addr','daily_cap_axo','max_claims_per_wallet','rate_limit_claims_per_hour','whitelist_addresses','blacklist_addresses','airdrop_paused','maintenance_mode']){
-
-    const el = document.getElementById(k); if(!el) continue;
-
-    if (el.tagName==='SELECT') el.value = String(s[k]);
-
-    else if (el.tagName==='TEXTAREA') el.value = (s[k]||[]).join(', ');
-
-    else el.value = s[k] ?? '';
-
-  }
-
-}
-
-async function save(silent=false){
-
-  const v = id => document.getElementById(id).value;
-
-  const body = {
-
-    signup_bonus:Number(v('signup_bonus')||0),
-
-    referral_reward:Number(v('referral_reward')||0),
-
-    require_trustline:(v('require_trustline')==='true'),
-
-    axo_price_usd:Number(v('axo_price_usd')||0.01),
-
-    buy_enabled:(v('buy_enabled')==='true'),
-
-    quick_signup_enabled:(v('quick_signup_enabled')==='true'),
-
-    fee_xrp:Number(v('fee_xrp')||0),
-
-    vault_addr:v('vault_addr').trim(),
-
-    daily_cap_axo:Number(v('daily_cap_axo')||0),
-
-    max_claims_per_wallet:Number(v('max_claims_per_wallet')||1),
-
-    rate_limit_claims_per_hour:Number(v('rate_limit_claims_per_hour')||1),
-
-    whitelist_addresses:v('whitelist_addresses'),
-
-    blacklist_addresses:v('blacklist_addresses'),
-
-    airdrop_paused:(v('airdrop_paused')==='true'),
-
-    maintenance_mode:(v('maintenance_mode')==='true'),
-
-  };
-
-  const r = await fetch('/api/admin/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-
-  if (silent) return r.ok;
-
-  const el = document.getElementById('msg');
-
-  el.textContent = r.ok ? 'Saved.' : 'Save failed';
-
-  el.className = 'hint ' + (r.ok?'ok':'err');
-
-  return r.ok;
-
-}
-
-const pinCard=document.getElementById('pinCard'); const adminCard=document.getElementById('adminCard'); show();
-
-</script>
-
-</body></html>
-
-"""
-
-
-
-# ---------------- Routes to render pages ----------------
 
 @app.route("/")
 
 def home():
 
-    return render_template_string(INDEX_HTML)
+    # Serve the compiled UI (index.html) from dist/public
+
+    return send_from_directory(PUBLIC_DIR, "index.html")
 
 
+
+@app.route("/assets/<path:fname>")
+
+def assets(fname: str):
+
+    return send_from_directory(PUBLIC_DIR / "assets", fname)
+
+
+
+# Optional: quiet the favicon 404 spam; serve if present, else 204
+
+@app.route("/favicon.ico")
+
+def favicon():
+
+    icon = PUBLIC_DIR / "favicon.ico"
+
+    if icon.exists():
+
+        return send_from_directory(PUBLIC_DIR, "favicon.ico")
+
+    return ("", 204)
+
+
+
+# Health probe (useful for Render)
+
+@app.get("/healthz")
+
+def healthz():
+
+    return jsonify({"ok": True})
+
+
+
+# ---------------- Admin page route ----------------
 
 @app.route("/admin")
 
@@ -860,14 +782,10 @@ def admin_page():
 
 
 
-# ---------------- Entrypoint ----------------
+# ---------------- Entry point ----------------
 
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", "8080"))
+    port = int(os.environ.get("PORT", "5000"))
 
-    # Use ASCII-only logs to avoid cp1252 console issues on Windows
-
-    os.environ["PYTHONIOENCODING"] = "utf-8"
-
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=False)
