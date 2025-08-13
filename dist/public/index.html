@@ -14,19 +14,29 @@
 
 :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--accent:#2563eb;--panelBorder:#1f2937}
 
-*{box-sizing:border-box} html,body{height:100%}
+*{box-sizing:border-box}
+
+html,body{height:100%}
 
 body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#33415533,transparent),var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+
+
+
+/* Top bar with theme + admin buttons */
 
 .topbar{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:10}
 
 .iconbtn{border:1px solid #e5e7eb;padding:8px 12px;border-radius:14px;cursor:pointer;background:#ffffff;color:#111827;box-shadow:0 2px 6px #0003}
 
+.iconbtn:hover{transform:translateY(-1px)}
+
+
+
 .wrap{max-width:880px;margin:80px auto 40px;padding:0 16px}
 
 h1{margin:10px 0 4px;font-size:64px;line-height:1;text-align:center}
 
-.sub{margin:0 0 16px;text-align:center;color:#94a3b8;font-size:16px;letter-spacing:.12em;font-weight:700}
+.sub{margin:0 0 16px;text-align:center;color:var(--muted);font-size:16px;letter-spacing:.12em;font-weight:700}
 
 .card{background:var(--panel);border:1px solid var(--panelBorder);border-radius:14px;padding:18px;box-shadow:0 12px 30px #0007}
 
@@ -48,15 +58,25 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
 .small{font-size:12px;color:#94a3b8}
 
-.success{color:#34d399}
+a{color:#93c5fd}
 
-.error{color:#f87171}
+
+
+/* Light theme adjustments */
+
+.light body,.light{background:#ffffff;color:#111827}
+
+.light .card{background:#f7f7fb;border-color:#e5e7eb}
+
+.light .row input{background:#ffffff;color:#111827;border-color:#d1d5db}
 
 </style>
 
 </head>
 
 <body id="root">
+
+  <!-- Top bar -->
 
   <div class="topbar">
 
@@ -72,31 +92,31 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
     <h1>AXO</h1>
 
-    <div class="sub"><strong>XRPL Signup & Referral Engine</strong></div>
+    <div class="sub">XRPL Signup & Referral Engine</div>
 
 
 
     <div class="card">
 
-
-
-      <!-- 0. No wallet? -->
+      <!-- Wallet help -->
 
       <div class="section">
 
-        <div class="row"><strong>0. Don’t have a XUMM wallet?</strong></div>
+        <div class="row"><strong>Don’t have a wallet?</strong></div>
 
         <div class="row" style="margin-top:8px">
 
-          <a class="primary" href="https://xumm.app/" target="_blank" style="text-decoration:none;padding:10px 14px;border-radius:10px;border:1px solid #2b50a8">
+          <button onclick="window.open('https://xumm.app','_blank')">Get XUMM Wallet</button>
 
-            Get a XUMM Wallet
+          <button onclick="window.open('https://play.google.com/store/apps/details?id=com.xrpllabs.xumm','_blank')">Android</button>
 
-          </a>
+          <!-- fixed App Store id -->
+
+          <button onclick="window.open('https://apps.apple.com/app/xumm/id1493203234','_blank')">iOS</button>
 
         </div>
 
-        <div class="row"><span class="note">Install XUMM first, then return here to continue.</span></div>
+        <div class="row"><span class="note">Install XUMM, create a wallet, then return here.</span></div>
 
       </div>
 
@@ -128,7 +148,9 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
         <div class="row"><strong>2. Set AXO Trust Line</strong> <span class="note">Required before claiming bonus.</span></div>
 
-        <div class="row" style="margin-top:8px"><button>Open in XUMM</button></div>
+        <div class="row" style="margin-top:8px"><button id="openXummBtn">Open in XUMM</button></div>
+
+        <div class="row"><span class="small">Tip: Doing steps 2–4 together saves a second network fee.</span></div>
 
       </div>
 
@@ -144,7 +166,7 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
           <input id="ref" placeholder="Referral code (optional — r‑addr)">
 
-          <button class="primary">Claim 1000 AXO</button>
+          <button class="primary" id="claimBtn">Claim 1000 AXO</button>
 
         </div>
 
@@ -154,21 +176,21 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
 
 
-      <!-- 4. Purchase -->
+      <!-- 4. Buy -->
 
       <div class="section">
 
         <div class="row"><strong>4. Purchase AXO with XRP (optional)</strong></div>
 
-        <div class="row" style="margin-top:8px"><button>Open Purchase Flow</button></div>
+        <div class="row" style="margin-top:8px"><button id="buyBtn">Open Purchase Flow</button></div>
 
-        <div class="row small"><span>Tip: buying during the claim flow saves a network fee.</span></div>
+        <div class="row"><span class="small">Completing with step 3 may reduce total fees.</span></div>
 
       </div>
 
 
 
-      <!-- Email subscribe -->
+      <!-- Email capture -->
 
       <div class="section">
 
@@ -176,13 +198,13 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
         <div class="row" style="margin-top:8px">
 
-          <input id="email" placeholder="you@example.com">
+          <input id="subEmail" type="email" placeholder="you@example.com">
 
-          <button id="subBtn">Notify me</button>
+          <button id="subBtn">Subscribe</button>
 
         </div>
 
-        <div class="row small" id="subMsg"></div>
+        <div class="row"><span id="subMsg" class="small"></span></div>
 
       </div>
 
@@ -196,4 +218,136 @@ button{padding:10px 14px;border-radius:10px;border:1px solid #2a3a6a;background:
 
         <div class="row" style="margin-top:8px">
 
-          <div
+          <div id="m_axo" class="kv">AXO Price (USD): 0.0000</div>
+
+          <div id="m_xrp" class="kv">XRP Price (USD): 0.0000</div>
+
+          <div id="m_rate" class="kv">1 XRP = 0 AXO</div>
+
+        </div>
+
+        <div class="kv" id="m_src">source: —</div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+<script>
+
+(function(){
+
+  // Theme toggle
+
+  const root = document.getElementById('root');
+
+  const themeBtn = document.getElementById('themeBtn');
+
+  const saved = localStorage.getItem('theme');
+
+  if(saved === 'light'){ root.classList.add('light'); }
+
+  themeBtn.onclick = () => {
+
+    root.classList.toggle('light');
+
+    localStorage.setItem('theme', root.classList.contains('light') ? 'light' : 'dark');
+
+  };
+
+
+
+  // Admin button
+
+  document.getElementById('adminBtn').onclick = () => { location.href = '/admin'; };
+
+
+
+  // (Simple front-end gating placeholders)
+
+  let verified=false, trustline=false;
+
+  document.getElementById('verifyBtn').onclick = () => { verified = !!document.getElementById('addr').value.trim(); };
+
+  document.getElementById('openXummBtn').onclick = () => { if(verified){ trustline=true; window.open('https://xumm.app','_blank'); } };
+
+  document.getElementById('claimBtn').onclick = () => { if(!verified||!trustline){ alert('Please complete steps 1 and 2 first.'); } };
+
+
+
+  // Subscribe
+
+  document.getElementById('subBtn').onclick = async () => {
+
+    const el = document.getElementById('subEmail');
+
+    const msg = document.getElementById('subMsg');
+
+    msg.textContent = 'Sending...';
+
+    try{
+
+      const r = await fetch('/api/subscribe', {
+
+        method:'POST',
+
+        headers:{'Content-Type':'application/json'},
+
+        body: JSON.stringify({email: el.value.trim()})
+
+      });
+
+      const j = await r.json();
+
+      msg.textContent = j.ok ? 'Thanks! Check your inbox.' : ('Error: ' + (j.error||'unknown'));
+
+    }catch(e){ msg.textContent = 'Network error'; }
+
+  };
+
+
+
+  // Market data refresher
+
+  async function refreshMarket(){
+
+    try{
+
+      const r = await fetch('/api/market', {cache:'no-store'});
+
+      const j = await r.json();
+
+      const axo = Number(j.axo_usd || 0).toFixed(4);
+
+      const xrp = Number(j.xrp_usd || 0).toFixed(4);
+
+      const rate = Number(j.axo_per_xrp || 0).toFixed(2);
+
+      const ts = new Date((j.t||0)*1000).toLocaleTimeString();
+
+      document.getElementById('m_axo').textContent = `AXO Price (USD): ${axo}`;
+
+      document.getElementById('m_xrp').textContent = `XRP Price (USD): ${xrp}`;
+
+      document.getElementById('m_rate').textContent = `1 XRP = ${rate} AXO`;
+
+      document.getElementById('m_src').textContent  = `source: ${j.source} • ${ts}`;
+
+    }catch(e){}
+
+    setTimeout(refreshMarket, 60000);
+
+  }
+
+  refreshMarket();
+
+})();
+
+</script>
+
+</body>
+
+</html>
